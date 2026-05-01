@@ -209,7 +209,7 @@ function checkPassword(){
 </script>
 
 <header>
-  <div class="logo">Planning<span>>Majors</span></div>
+  <div class="logo">Planning<span>Auto</span></div>
   <div class="legend">
     <div class="li"><div class="ld" style="background:var(--day)"></div>Jour</div>
     <div class="li"><div class="ld" style="background:var(--night)"></div>Nuit</div>
@@ -250,17 +250,27 @@ function checkPassword(){
       </select>
     </div>
     <div style="display:flex;align-items:center;gap:7px"><label>Repos min.</label><input type="number" id="inp-rest" value="2" min="1" max="4"></div>
+    <div style="display:flex;align-items:center;gap:7px"><label>Max consécutifs</label>
+      <select id="inp-maxcons">
+        <option value="1">1 jour</option>
+        <option value="2">2 jours</option>
+        <option value="3">3 jours</option>
+        <option value="4" selected>4 jours (max)</option>
+      </select>
+    </div>
     <button class="btn btn-primary" id="btn-generate" onclick="generate()">⟳ Générer</button>
     <button class="btn btn-ghost" onclick="exportCSV()">↓ CSV</button>
   </div>
   <div class="agent-panel" id="agent-panel"><div class="agent-panel-label">👤 Noms des agents (modifiables)</div></div>
   <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;padding:8px 12px;background:rgba(91,140,255,.06);border:1px solid rgba(91,140,255,.18);border-radius:var(--r);font-size:.67rem;color:var(--dim)">
     <span>📋 <strong style="color:var(--text)">Règles de rotation appliquées :</strong></span>
-    <span>☾→☾ Nuits consécutives autorisées (max 4)</span>
+    <span>☾→☾ Nuits consécutives autorisées</span>
     <span>·</span>
     <span>🚫 Jour interdit directement après une Nuit</span>
     <span>·</span>
-    <span>🔁 Max 4 services consécutifs (J ou N)</span>
+    <span>🔁 Max consécutifs configurable (1–4)</span>
+    <span>·</span>
+    <span>📅 WE = même service Sam+Dim par le même agent</span>
     <span>·</span>
     <span>😴×<em>n</em> Repos minimum configurable entre blocs</span>
   </div>
@@ -448,6 +458,7 @@ function _getStateObj(){
     currentMonth, currentYear,
     selAlgo:  document.getElementById('sel-algo')?.value  || 'equityWE',
     minRest: +document.getElementById('inp-rest')?.value  || 2,
+    maxCons: +document.getElementById('inp-maxcons')?.value || 4,
     ferieYear:+document.getElementById('ferie-year')?.value || currentYear,
     annYear:  +document.getElementById('ann-year')?.value || currentYear,
   };
@@ -758,15 +769,17 @@ function isSpecialDay(year,month,day){
 
   if(savedState?.selAlgo) document.getElementById('sel-algo').value=savedState.selAlgo;
   if(typeof savedState?.minRest==='number') document.getElementById('inp-rest').value=savedState.minRest;
+  if(typeof savedState?.maxCons==='number') document.getElementById('inp-maxcons').value=savedState.maxCons;
   document.getElementById('sel-algo').onchange=saveState;
   document.getElementById('inp-rest').onchange=saveState;
+  document.getElementById('inp-maxcons').onchange=saveState;
 
   const y=currentYear,m=String(currentMonth+1).padStart(2,'0');
   document.getElementById('abs-from').value=`${y}-${m}-01`;
   document.getElementById('abs-to').value=`${y}-${m}-05`;
   document.getElementById('hs-date').value=`${y}-${m}-10`;
   document.getElementById('ferie-date').value=`${y}-${m}-20`;
-
+  
   // Init wish month selector
   const wm=document.getElementById('wish-month');
   MF.forEach((mon,i)=>{const o=document.createElement('option');o.value=i;o.textContent=mon;if(i===currentMonth)o.selected=true;wm.appendChild(o);});
@@ -1186,6 +1199,7 @@ function generate(){
 
   const algo=document.getElementById('sel-algo').value;
   const minRest=+document.getElementById('inp-rest').value;
+  const maxCons=+document.getElementById('inp-maxcons').value||4;
   const days=new Date(currentYear,currentMonth+1,0).getDate();
   const n=agents.length;
   initFeries(currentYear);
@@ -1212,10 +1226,10 @@ function generate(){
   }
 
   // 3. Choose algorithm
-  if(algo==='equityWE') genEquityWE(days,n,minRest,sch);
-  else if(algo==='cyclic') genCyclic(days,n,minRest,sch);
-  else if(algo==='random') genRandom(days,n,minRest,sch);
-  else genMinWE(days,n,minRest,sch);
+  if(algo==='equityWE') genEquityWE(days,n,minRest,maxCons,sch);
+  else if(algo==='cyclic') genCyclic(days,n,minRest,maxCons,sch);
+  else if(algo==='random') genRandom(days,n,minRest,maxCons,sch);
+  else genMinWE(days,n,minRest,maxCons,sch);
 
   renderPlanning(days,sch);
   renderStats(days,sch);
@@ -1235,37 +1249,64 @@ function isNight(s){return s==='N'||s==='HS_N';}
 function isDay(s){return s==='D'||s==='HS_D';}
 
 // Core constraint check: can agent 'a' work shift of type 'D' or 'N' on day 'd'?
-function canWorkAs(sch,a,d,shiftType,minRest){
+// prevSch = schedule du mois précédent (pour vérifier les contraintes en début de mois)
+function canWorkAs(sch,a,d,shiftType,minRest,maxCons,prevSch){
+  maxCons = maxCons||4;
   // Cannot work if locked (absence/HS already set)
   if(isLocked(sch,a,d)) return false;
 
-  // Rule 1 — D forbidden directly after N
-  if(shiftType==='D' && d>0 && isNight(sch[a][d-1])) return false;
+  // Fonction pour lire la valeur du jour x, avec fallback sur le mois précédent si x<0
+  const getVal=(x)=>{
+    if(x>=0) return sch[a][x];
+    if(prevSch) return prevSch[a][prevSch[a].length+x]; // x est négatif
+    return 'R';
+  };
 
-  // Rule 2 — max 4 consecutive working shifts
-  let cons=0;
-  for(let x=d-1;x>=0;x--){
-    if(isWork(sch[a][x])) cons++; else break;
+  // Rule 1 — D forbidden directly after N
+  if(shiftType==='D'){
+    const prev=getVal(d-1);
+    if(prev==='N'||prev==='HS_N') return false;
   }
-  if(cons>=4) return false;
+
+  // Rule 2 — max consecutive working shifts (configurable)
+  let cons=0;
+  for(let x=d-1;x>=-(prevSch?prevSch[a].length:0);x--){
+    const s=getVal(x);
+    if(s==='D'||s==='N'||s==='HS_D'||s==='HS_N') cons++;
+    else break;
+  }
+  if(cons>=maxCons) return false;
 
   // Rule 3 — minimum rest days between blocks
-  // Count consecutive rest days immediately before this slot
   let restBefore=0;
-  for(let x=d-1;x>=0;x--){
-    const s=sch[a][x];
-    if(s==='R'||s==='C'||s==='F') restBefore++; else break;
+  for(let x=d-1;x>=-(prevSch?prevSch[a].length:0);x--){
+    const s=getVal(x);
+    if(s==='R'||s==='C'||s==='F') restBefore++;
+    else break;
   }
-  // If there was a rest period shorter than minRest after a work block, block it
-  if(restBefore>0 && restBefore<minRest){
+  if(restBefore>0&&restBefore<minRest){
     const lastWork=d-1-restBefore;
-    if(lastWork>=0 && isWork(sch[a][lastWork])) return false;
+    const lw=getVal(lastWork);
+    if(lw==='D'||lw==='N'||lw==='HS_D'||lw==='HS_N') return false;
   }
 
   return true;
 }
 function shuffle(arr){for(let i=arr.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[arr[i],arr[j]]=[arr[j],arr[i]];}}
 
+// Retourne le planning du mois précédent (pour les contraintes en début de mois)
+function getPrevSch(){
+  let pm=currentMonth-1, py=currentYear;
+  if(pm<0){pm=11;py--;}
+  return schedules[py]&&schedules[py][pm]||null;
+}
+
+// Used by drag/paint editor
+function canWorkStrict(sch,a,d,shiftType){
+  const minRest=+(document.getElementById('inp-rest')||{value:2}).value;
+  const maxCons=+(document.getElementById('inp-maxcons')||{value:4}).value;
+  return canWorkAs(sch,a,d,shiftType,minRest,maxCons,getPrevSch());
+}
 /* --- Equity WE/Feries + Jour/Nuit algo -- reecriture quota-based ---
  *
  * Principe :
@@ -1275,7 +1316,9 @@ function shuffle(arr){for(let i=arr.length-1;i>0;i--){const j=Math.floor(Math.ra
  *     WE+feries annuel (tertiaire), voeu de repos (penalite forte).
  *  3. Contrainte WE : Samedi + Dimanche en bloc, meme agent prefere.
  * ----------------------------------------------------------------- */
-function genEquityWE(days,n,minRest,sch){
+function genEquityWE(days,n,minRest,maxCons,sch){
+  const prevSch=getPrevSch();
+  const cwa=(a,d,t)=>canWorkAs(sch,a,d,t,minRest,maxCons,prevSch);
 
   /* 1. Quotas cibles par agent */
   const lockedD=Array(n).fill(0), lockedN=Array(n).fill(0), lockedOther=Array(n).fill(0);
@@ -1287,22 +1330,15 @@ function genEquityWE(days,n,minRest,sch){
       else if(v==='C'||v==='F') lockedOther[a]++;
     }
   }
-
-  // Shifts libres a attribuer (hors HS deja couverts)
   const hsD=lockedD.reduce((s,v)=>s+v,0);
   const hsN=lockedN.reduce((s,v)=>s+v,0);
   const totalJ=days-hsD, totalN=days-hsN;
-
   const baseJ=Math.floor(totalJ/n), baseN=Math.floor(totalN/n);
   let remJ=totalJ%n, remN=totalN%n;
-
-  // Distribuer les restes aux agents les moins charges en WE/feries annuels
   const annSpOrder=[...Array(n).keys()].sort((a,b)=>countAnnualSpecial(a,currentYear)-countAnnualSpecial(b,currentYear));
   const quotaJ=Array(n).fill(baseJ), quotaN=Array(n).fill(baseN);
   for(let i=0;i<n&&remJ>0;i++){quotaJ[annSpOrder[i]]++;remJ--;}
   for(let i=0;i<n&&remN>0;i++){quotaN[annSpOrder[i]]++;remN--;}
-
-  // Plafonner par les jours libres de chaque agent
   for(let a=0;a<n;a++){
     const cap=days-lockedD[a]-lockedN[a]-lockedOther[a];
     if(quotaJ[a]+quotaN[a]>cap){
@@ -1312,7 +1348,26 @@ function genEquityWE(days,n,minRest,sch){
     }
   }
 
-  /* 2. Attribution jour par jour */
+  /* 2. Attribution jour par jour — pré-passe WE pour verrouiller les blocs Sam+Dim */
+  // D'abord on identifie tous les Samedis et on réserve le même agent pour le Dimanche
+  // en forçant l'attribution AVANT la passe normale (évite que le quota soit épuisé)
+
+  // Pré-passe : traiter les Samedis en premier pour réserver les Dimanches
+  for(let d=0;d<days;d++){
+    const dow=new Date(currentYear,currentMonth,d+1).getDay();
+    if(dow!==6) continue; // seulement Samedis
+    const sunIdx=d+1;
+    if(sunIdx>=days) continue; // pas de Dimanche ce mois (fin de mois)
+
+    // Attribuer le Samedi normalement s'il n'est pas encore couvert
+    // (sera fait dans la boucle principale)
+    // On note seulement : le Dimanche doit suivre le Samedi
+    // → marqué via weReserved[sunIdx] = {D: agentDSam, N: agentNSam}
+  }
+  // Table de réservation WE : pour chaque jour, quel agent DOIT faire J ou N
+  const weForced={}; // {dayIdx: {D: agentIdx|null, N: agentIdx|null}}
+
+  /* Boucle principale d'attribution */
   for(let d=0;d<days;d++){
     let asgD=false,asgN=false;
     for(let a=0;a<n;a++){
@@ -1324,51 +1379,72 @@ function genEquityWE(days,n,minRest,sch){
 
     const dow=new Date(currentYear,currentMonth,d+1).getDay();
     const special=dow===0||dow===6||!!isFerie(currentYear,currentMonth,d+1);
-    const isSunday=dow===0;
-    const satIdx=d-1;
+    const isSat=dow===6;
+    const isSun=dow===0;
 
-    // Score bas = prioritaire (tri ASC, on prend index [0])
     const score=(a,forNight)=>{
-      // Ratio heures actuelles / heures cibles : agent le moins avance = prioritaire
       const curH=sch[a].reduce((s,v)=>s+shiftMin(v),0);
-      const targetH=forNight ? quotaN[a]*DUR.N : quotaJ[a]*DUR.D;
-      const hRatio=targetH>0 ? curH/targetH : (curH>0?2:0);
-
-      // Desequilibre J/N de l'agent ce mois
+      const targetH=forNight?quotaN[a]*DUR.N:quotaJ[a]*DUR.D;
+      const hRatio=targetH>0?curH/targetH:(curH>0?2:0);
       const mJ=sch[a].filter(v=>v==='D'||v==='HS_D').length;
       const mN=sch[a].filter(v=>v==='N'||v==='HS_N').length;
       const dnImbalance=forNight?(mN-mJ):(mJ-mN);
-
-      // WE+feries annuels (seulement sur jours speciaux)
       const spScore=special?countAnnualSpecial(a,currentYear):0;
-
-      // Voeu de repos
       const wishPenalty=hasWish(a,currentYear,currentMonth,d+1)?10:0;
-
-      return hRatio*10 + dnImbalance*3 + spScore*0.5 + wishPenalty;
+      return hRatio*10+dnImbalance*3+spScore*0.5+wishPenalty;
     };
 
+    // ── CAS DIMANCHE : forcer le même agent et le même service que le Samedi ──
+    if(isSun){
+      const satIdx=d-1;
+      // Chercher qui a fait J et N le Samedi (dans ce mois ou mois précédent si d=0)
+      const getSatVal=(a)=> satIdx>=0 ? sch[a][satIdx] : (prevSch?prevSch[a][prevSch[a].length-1]:'R');
+
+      if(!asgD){
+        // Trouver l'agent qui a fait Jour Samedi
+        const satJAgent=Array.from({length:n},(_,a)=>a).find(a=>isDay(getSatVal(a)));
+        if(satJAgent!==undefined && sch[satJAgent][d]==='R' && cwa(satJAgent,d,'D')){
+          sch[satJAgent][d]='D';
+          if(quotaJ[satJAgent]>0) quotaJ[satJAgent]--;
+          asgD=true;
+        } else {
+          // L'agent du Samedi ne peut pas (contrainte ou absent) → fallback équité
+          let eligD=[...Array(n).keys()].filter(a=>!isLocked(sch,a,d)&&sch[a][d]==='R'&&cwa(a,d,'D')&&quotaJ[a]>0);
+          shuffle(eligD);
+          eligD.sort((a,b)=>score(a,false)-score(b,false));
+          if(eligD.length){sch[eligD[0]][d]='D';quotaJ[eligD[0]]--;asgD=true;}
+        }
+      }
+
+      if(!asgN){
+        // Trouver l'agent qui a fait Nuit Samedi
+        const satNAgent=Array.from({length:n},(_,a)=>a).find(a=>isNight(getSatVal(a)));
+        if(satNAgent!==undefined && sch[satNAgent][d]==='R' && cwa(satNAgent,d,'N') && !isDay(sch[satNAgent][d])){
+          sch[satNAgent][d]='N';
+          if(quotaN[satNAgent]>0) quotaN[satNAgent]--;
+        } else {
+          let eligN=[...Array(n).keys()].filter(a=>!isLocked(sch,a,d)&&sch[a][d]==='R'&&cwa(a,d,'N')&&quotaN[a]>0);
+          // Exclure l'agent déjà en Jour ce Dimanche
+          const djAgent=Array.from({length:n},(_,a)=>a).find(a=>sch[a][d]==='D');
+          if(djAgent!==undefined) eligN=eligN.filter(a=>a!==djAgent);
+          shuffle(eligN);
+          eligN.sort((a,b)=>score(a,true)-score(b,true));
+          if(eligN.length){sch[eligN[0]][d]='N';quotaN[eligN[0]]--;}
+        }
+      }
+      continue; // Dimanche traité, passer au jour suivant
+    }
+
+    // ── CAS NORMAL (Lundi→Samedi) ──
     let eligD=[...Array(n).keys()].filter(a=>
-      !isLocked(sch,a,d)&&sch[a][d]==='R'&&canWorkAs(sch,a,d,'D',minRest)&&quotaJ[a]>0
+      !isLocked(sch,a,d)&&sch[a][d]==='R'&&cwa(a,d,'D')&&quotaJ[a]>0
     );
     let eligN=[...Array(n).keys()].filter(a=>
-      !isLocked(sch,a,d)&&sch[a][d]==='R'&&canWorkAs(sch,a,d,'N',minRest)&&quotaN[a]>0
+      !isLocked(sch,a,d)&&sch[a][d]==='R'&&cwa(a,d,'N')&&quotaN[a]>0
     );
-
     shuffle(eligD); shuffle(eligN);
-
-    if(isSunday&&satIdx>=0){
-      const workedSat=a=>{const s=sch[a][satIdx];return s==='D'||s==='N'||s==='HS_D'||s==='HS_N';};
-      const prefD=eligD.filter(workedSat).sort((a,b)=>score(a,false)-score(b,false));
-      const restD=eligD.filter(a=>!workedSat(a)).sort((a,b)=>score(a,false)-score(b,false));
-      eligD=[...prefD,...restD];
-      const prefN=eligN.filter(workedSat).sort((a,b)=>score(a,true)-score(b,true));
-      const restN=eligN.filter(a=>!workedSat(a)).sort((a,b)=>score(a,true)-score(b,true));
-      eligN=[...prefN,...restN];
-    } else {
-      eligD.sort((a,b)=>score(a,false)-score(b,false));
-      eligN.sort((a,b)=>score(a,true)-score(b,true));
-    }
+    eligD.sort((a,b)=>score(a,false)-score(b,false));
+    eligN.sort((a,b)=>score(a,true)-score(b,true));
 
     if(!asgD&&eligD.length){
       const picked=eligD[0];
@@ -1382,144 +1458,74 @@ function genEquityWE(days,n,minRest,sch){
     }
   }
 
-  fixCoverage(days,n,sch);
+  fixCoverage(days,n,minRest,maxCons,sch,prevSch);
 }
-function genCyclic(days, n, minRest, sch) {
-  // Répartition équitable des shifts J/N/R sur le mois
-  // 1. Calculer le nombre total de shifts à affecter
-  const totalShifts = days * n;
-  // On veut 1 J et 1 N par jour, le reste en repos
-  const totalJ = days;
-  const totalN = days;
-  const totalR = totalShifts - totalJ - totalN;
-
-  // 2. Répartir équitablement les shifts par agent
-  const baseJ = Math.floor(totalJ / n);
-  const baseN = Math.floor(totalN / n);
-  const baseR = Math.floor(totalR / n);
-  let remJ = totalJ % n;
-  let remN = totalN % n;
-  let remR = totalR % n;
-
-  // Pour chaque agent, définir son quota cible
-  let quotas = Array.from({ length: n }, () => ({ J: baseJ, N: baseN, R: baseR }));
-  for (let i = 0; i < n; i++) {
-    if (remJ > 0) { quotas[i].J++; remJ--; }
-    if (remN > 0) { quotas[i].N++; remN--; }
-    if (remR > 0) { quotas[i].R++; remR--; }
-  }
-
-  // 3. Pour chaque jour, affecter un J et un N à des agents qui n'ont pas dépassé leur quota
-  // On mélange l'ordre des agents pour chaque jour pour éviter les biais
-  for (let d = 0; d < days; d++) {
-    // Affecter le jour
-    let candidatesJ = [];
-    for (let a = 0; a < n; a++) {
-      if (!isLocked(sch, a, d) && quotas[a].J > 0 && canWorkAs(sch, a, d, 'D', minRest) && sch[a][d] === 'R') {
-        candidatesJ.push(a);
-      }
-    }
+function genCyclic(days, n, minRest, maxCons, sch) {
+  const prevSch=getPrevSch();
+  const cwa=(a,d,t)=>canWorkAs(sch,a,d,t,minRest,maxCons,prevSch);
+  const totalJ=days, totalN=days;
+  const baseJ=Math.floor(totalJ/n), baseN=Math.floor(totalN/n);
+  let remJ=totalJ%n, remN=totalN%n;
+  let quotas=Array.from({length:n},()=>({J:baseJ,N:baseN}));
+  for(let i=0;i<n;i++){if(remJ>0){quotas[i].J++;remJ--;}if(remN>0){quotas[i].N++;remN--;}}
+  for(let d=0;d<days;d++){
+    let candidatesJ=[];
+    for(let a=0;a<n;a++){if(!isLocked(sch,a,d)&&quotas[a].J>0&&cwa(a,d,'D')&&sch[a][d]==='R')candidatesJ.push(a);}
     shuffle(candidatesJ);
-    if (candidatesJ.length > 0) {
-      sch[candidatesJ[0]][d] = 'D';
-      quotas[candidatesJ[0]].J--;
-    }
-
-    // Affecter la nuit
-    let candidatesN = [];
-    for (let a = 0; a < n; a++) {
-      if (!isLocked(sch, a, d) && quotas[a].N > 0 && canWorkAs(sch, a, d, 'N', minRest) && sch[a][d] === 'R') {
-        candidatesN.push(a);
-      }
-    }
+    if(candidatesJ.length>0){sch[candidatesJ[0]][d]='D';quotas[candidatesJ[0]].J--;}
+    let candidatesN=[];
+    for(let a=0;a<n;a++){if(!isLocked(sch,a,d)&&quotas[a].N>0&&cwa(a,d,'N')&&sch[a][d]==='R')candidatesN.push(a);}
     shuffle(candidatesN);
-    if (candidatesN.length > 0) {
-      sch[candidatesN[0]][d] = 'N';
-      quotas[candidatesN[0]].N--;
-    }
+    if(candidatesN.length>0){sch[candidatesN[0]][d]='N';quotas[candidatesN[0]].N--;}
   }
-
-  // 4. Remplir le reste en repos (déjà initialisé à 'R')
-  fixCoverage(days, n, sch);
+  fixCoverage(days,n,minRest,maxCons,sch,prevSch);
 }
-function genRandom(days,n,minRest,sch){
-  // Aléatoire contraint : mélange les candidats à chaque affectation
+function genRandom(days,n,minRest,maxCons,sch){
+  const prevSch=getPrevSch();
+  const cwa=(a,d,t)=>canWorkAs(sch,a,d,t,minRest,maxCons,prevSch);
   for(let d=0;d<days;d++){
     let asgD=false,asgN=false;
     for(let a=0;a<n;a++){if(sType(sch[a][d])==='D')asgD=true;if(sType(sch[a][d])==='N')asgN=true;}
     if(asgD&&asgN) continue;
-    let availD=[...Array(n).keys()].filter(a=>!isLocked(sch,a,d)&&canWorkAs(sch,a,d,'D',minRest));
-    let availN=[...Array(n).keys()].filter(a=>!isLocked(sch,a,d)&&canWorkAs(sch,a,d,'N',minRest));
-    // Mélange pour éviter le biais d'ordre
-    shuffle(availD);
-    shuffle(availN);
-    // Prioritize by equity: agents with fewer hours
+    let availD=[...Array(n).keys()].filter(a=>!isLocked(sch,a,d)&&cwa(a,d,'D'));
+    let availN=[...Array(n).keys()].filter(a=>!isLocked(sch,a,d)&&cwa(a,d,'N'));
+    shuffle(availD); shuffle(availN);
     const totH=agents.map((_,a)=>sch[a].reduce((s,v)=>s+shiftMin(v),0));
     const maxH=Math.max(...totH)||1;
     const scoreByHours=a=>totH[a]/maxH;
     const withoutWish=a=>!hasWish(a,currentYear,currentMonth,d+1);
-    // Combine: prefer agents without wishes, then by lower hours, puis index agent pour stabilité
-    availD.sort((a,b)=>{
-      const wa=withoutWish(a)?0:1;
-      const wb=withoutWish(b)?0:1;
-      if(wa!==wb) return wa-wb;
-      const sh=scoreByHours(a)-scoreByHours(b);
-      if(sh!==0) return sh;
-      return a-b;
-    });
-    availN.sort((a,b)=>{
-      const wa=withoutWish(a)?0:1;
-      const wb=withoutWish(b)?0:1;
-      if(wa!==wb) return wa-wb;
-      const sh=scoreByHours(a)-scoreByHours(b);
-      if(sh!==0) return sh;
-      return a-b;
-    });
+    const sortFn=(a,b)=>{const wa=withoutWish(a)?0:1,wb=withoutWish(b)?0:1;if(wa!==wb)return wa-wb;return scoreByHours(a)-scoreByHours(b)||a-b;};
+    availD.sort(sortFn); availN.sort(sortFn);
     if(!asgD&&availD.length){sch[availD[0]][d]='D';asgD=true;}
-    if(!asgN){
-      const pick=availN.find(a=>sch[a][d]==='R');
-      if(pick!==undefined){sch[pick][d]='N';}
-    }
+    if(!asgN){const pick=availN.find(a=>sch[a][d]==='R');if(pick!==undefined)sch[pick][d]='N';}
   }
-  fixCoverage(days,n,sch);
+  fixCoverage(days,n,minRest,maxCons,sch,prevSch);
 }
-function genMinWE(days,n,minRest,sch){
-  // Min WE: minimiser les WE/fériés travaillés de manière équitable
-  const wc=Array(n).fill(0);  // WE counter per agent
+function genMinWE(days,n,minRest,maxCons,sch){
+  const prevSch=getPrevSch();
+  const cwa=(a,d,t)=>canWorkAs(sch,a,d,t,minRest,maxCons,prevSch);
+  const wc=Array(n).fill(0);
   for(let d=0;d<days;d++){
     let asgD=false,asgN=false;
     for(let a=0;a<n;a++){if(sType(sch[a][d])==='D')asgD=true;if(sType(sch[a][d])==='N')asgN=true;}
     if(asgD&&asgN) continue;
     const special=isWE(currentYear,currentMonth,d+1)||!!isFerie(currentYear,currentMonth,d+1);
-    let orderD=[...Array(n).keys()].filter(a=>!isLocked(sch,a,d)&&canWorkAs(sch,a,d,'D',minRest));
-    let orderN=[...Array(n).keys()].filter(a=>!isLocked(sch,a,d)&&canWorkAs(sch,a,d,'N',minRest));
-    // Mélange pour éviter le biais d'ordre
-    shuffle(orderD);
-    shuffle(orderN);
-    // Combined scoring: WE minimization + hour equity + wishes
+    let orderD=[...Array(n).keys()].filter(a=>!isLocked(sch,a,d)&&cwa(a,d,'D'));
+    let orderN=[...Array(n).keys()].filter(a=>!isLocked(sch,a,d)&&cwa(a,d,'N'));
+    shuffle(orderD); shuffle(orderN);
     const totH=agents.map((_,a)=>sch[a].reduce((s,v)=>s+shiftMin(v),0));
     const maxH=Math.max(...totH)||1;
-    const score=(a)=>{
-      const weScore=wc[a];
-      const hScore=totH[a]/maxH*10;
-      const wishBonus=hasWish(a,currentYear,currentMonth,d+1)?-5:0;
-      return weScore+hScore+wishBonus;
-    };
+    const score=(a)=>wc[a]+totH[a]/maxH*10+(hasWish(a,currentYear,currentMonth,d+1)?-5:0);
     orderD.sort((a,b)=>score(a)-score(b)||(a-b));
     orderN.sort((a,b)=>score(a)-score(b)||(a-b));
     if(!asgD&&orderD.length){sch[orderD[0]][d]='D';if(special)wc[orderD[0]]++;asgD=true;}
-    if(!asgN){
-      const pick=orderN.find(a=>sch[a][d]==='R');
-      if(pick!==undefined){sch[pick][d]='N';if(special)wc[pick]++;}
-    }
+    if(!asgN){const pick=orderN.find(a=>sch[a][d]==='R');if(pick!==undefined){sch[pick][d]='N';if(special)wc[pick]++;}}
   }
-  fixCoverage(days,n,sch);
+  fixCoverage(days,n,minRest,maxCons,sch,prevSch);
 }
-function fixCoverage(days,n,sch){
-  const minRest=+(document.getElementById('inp-rest')||{value:2}).value;
-
-  // Score d'equite : agent avec le moins d'heures et le moins de shifts du type = prioritaire
-  const getScore=(a, forNight)=>{
+function fixCoverage(days,n,minRest,maxCons,sch,prevSch){
+  const cwa=(a,d,t)=>canWorkAs(sch,a,d,t,minRest,maxCons,prevSch);
+  const getScore=(a,forNight)=>{
     const curH=sch[a].reduce((s,v)=>s+shiftMin(v),0);
     const mJ=sch[a].filter(v=>v==='D'||v==='HS_D').length;
     const mN=sch[a].filter(v=>v==='N'||v==='HS_N').length;
@@ -1540,16 +1546,15 @@ function fixCoverage(days,n,sch){
 
     // Combler un Jour manquant
     if(DW.length===0){
-      const cands=RW.filter(a=>canWorkAs(sch,a,d,'D',minRest));
+      const cands=RW.filter(a=>cwa(a,d,'D'));
       if(cands.length>0){
         cands.sort((a,b)=>getScore(a,false)-getScore(b,false));
         const ag=cands[0];
         sch[ag][d]='D'; DW.push(ag); RW.splice(RW.indexOf(ag),1);
       }
     }
-    // Combler une Nuit manquante (agent different du Jour)
     if(NW.length===0){
-      const cands=RW.filter(a=>canWorkAs(sch,a,d,'N',minRest)&&!DW.includes(a));
+      const cands=RW.filter(a=>cwa(a,d,'N')&&!DW.includes(a));
       if(cands.length>0){
         cands.sort((a,b)=>getScore(a,true)-getScore(b,true));
         const ag=cands[0];
@@ -1558,22 +1563,19 @@ function fixCoverage(days,n,sch){
     }
   }
 
-  // Passe de reequilibrage : tant que l'ecart depasse 1 shift, echanger repos/shift entre agents
   for(let pass=0;pass<5;pass++){
     const totH=Array.from({length:n},(_,a)=>sch[a].reduce((s,v)=>s+shiftMin(v),0));
     const maxH=Math.max(...totH), minH=Math.min(...totH);
     if(maxH-minH<=DUR.D) break;
-
     const heavy=totH.indexOf(maxH);
     const light=totH.indexOf(minH);
     let swapped=false;
-
     for(let d=0;d<days&&!swapped;d++){
       const vh=sch[heavy][d];
       if((vh==='D'||vh==='N')&&sch[light][d]==='R'&&!isLocked(sch,heavy,d)){
         const shiftType=vh==='D'?'D':'N';
         sch[heavy][d]='R';
-        if(canWorkAs(sch,light,d,shiftType,minRest)){
+        if(cwa(light,d,shiftType)){
           sch[light][d]=vh;
           const hasD=sch.some(r=>r[d]==='D'||r[d]==='HS_D');
           const hasN=sch.some(r=>r[d]==='N'||r[d]==='HS_N');
@@ -1585,11 +1587,6 @@ function fixCoverage(days,n,sch){
     }
     if(!swapped) break;
   }
-}
-// Used by drag/paint editor
-function canWorkStrict(sch,a,d,shiftType){
-  const minRest=+(document.getElementById('inp-rest')||{value:2}).value;
-  return canWorkAs(sch,a,d,shiftType,minRest);
 }
 
 /* ========================================================
