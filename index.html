@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 
 <html lang="fr">
@@ -1252,23 +1253,25 @@ function isDay(s){return s==='D'||s==='HS_D';}
 // prevSch = schedule du mois précédent (pour vérifier les contraintes en début de mois)
 function canWorkAs(sch,a,d,shiftType,minRest,maxCons,prevSch){
   maxCons = maxCons||4;
-  // Cannot work if locked (absence/HS already set)
   if(isLocked(sch,a,d)) return false;
 
-  // Fonction pour lire la valeur du jour x, avec fallback sur le mois précédent si x<0
   const getVal=(x)=>{
-    if(x>=0) return sch[a][x];
-    if(prevSch) return prevSch[a][prevSch[a].length+x]; // x est négatif
+    if(x>=0){
+      const v=sch[a][x];
+      // Traiter les marqueurs temporaires comme des shifts réels
+      if(v==='D_TMP') return 'D';
+      if(v==='N_TMP') return 'N';
+      return v;
+    }
+    if(prevSch) return prevSch[a][prevSch[a].length+x];
     return 'R';
   };
 
-  // Rule 1 — D forbidden directly after N
   if(shiftType==='D'){
     const prev=getVal(d-1);
     if(prev==='N'||prev==='HS_N') return false;
   }
 
-  // Rule 2 — max consecutive working shifts (configurable)
   let cons=0;
   for(let x=d-1;x>=-(prevSch?prevSch[a].length:0);x--){
     const s=getVal(x);
@@ -1277,11 +1280,10 @@ function canWorkAs(sch,a,d,shiftType,minRest,maxCons,prevSch){
   }
   if(cons>=maxCons) return false;
 
-  // Rule 3 — minimum rest days between blocks
   let restBefore=0;
   for(let x=d-1;x>=-(prevSch?prevSch[a].length:0);x--){
     const s=getVal(x);
-    if(s==='R'||s==='C'||s==='F') restBefore++;
+    if(s==='R'||s==='C'||s==='F'||s==='WE_PROT') restBefore++;
     else break;
   }
   if(restBefore>0&&restBefore<minRest){
@@ -1368,17 +1370,23 @@ function genEquityWE(days,n,minRest,maxCons,sch){
   }
 
   /* ── RÈGLE 3 : Pré-attribuer les blocs WE (Sam+Dim atomiques) ── */
-  // Trouver tous les Samedis du mois et attribuer Sam+Dim ensemble
   for(let d=0;d<days;d++){
     const dow=new Date(currentYear,currentMonth,d+1).getDay();
     if(dow!==6) continue; // Seulement les Samedis
-    const sunIdx=d+1;
 
-    // Vérifier que Sam ET Dim sont disponibles (pas déjà attribués)
-    const samDone=()=>{ let hD=false,hN=false; for(let a=0;a<n;a++){const s=sType(sch[a][d]);if(s==='D')hD=true;if(s==='N')hN=true;} return hD&&hN; };
-    if(samDone()) continue; // déjà couvert (HS)
+    const sunIdx=d+1; // index du Dimanche (peut dépasser days si fin de mois)
+    const sunInMonth=sunIdx<days;
 
-    // Score pour choisir les agents du WE (sam+dim)
+    // Vérifier si le Samedi est déjà couvert par des HS
+    let hDsat=false,hNsat=false;
+    for(let a=0;a<n;a++){
+      const s=sType(sch[a][d]);
+      if(s==='D')hDsat=true;
+      if(s==='N')hNsat=true;
+    }
+
+    // Score WE : favorise l'agent le moins chargé en WE annuels, le moins d'heures,
+    // et pénalise les vœux et la pénibilité Jour après repos court
     const scoreWE=(a,forNight)=>{
       const curH=sch[a].reduce((s,v)=>s+shiftMin(v),0);
       const targetH=forNight?quotaN[a]*DUR.N:quotaJ[a]*DUR.D;
@@ -1387,79 +1395,81 @@ function genEquityWE(days,n,minRest,maxCons,sch){
       const mN=sch[a].filter(v=>v==='N'||v==='HS_N').length;
       const dnImbalance=forNight?(mN-mJ):(mJ-mN);
       const spScore=countAnnualSpecial(a,currentYear);
-      // RÈGLE 2 : vœu bloquant sur Sam OU Dim → exclure l'agent
-      const wishSam=hasWish(a,currentYear,currentMonth,d+1)?999:0;
-      const wishSun=sunIdx<days&&hasWish(a,currentYear,currentMonth,sunIdx+1)?999:0;
-      // RÈGLE 5 : pénibilité Jour après repos court (1 seul repos)
-      let pénibilité=0;
+      let pén=0;
       if(!forNight){
         const getVal=(x)=>x>=0?sch[a][x]:(prevSch?prevSch[a][prevSch[a].length+x]:'R');
-        let restBefore=0;
-        for(let x=d-1;x>=-30;x--){const s=getVal(x);if(s==='R'||s==='C'||s==='F'||s==='WE_PROT')restBefore++;else break;}
-        if(restBefore===1) pénibilité=8; // 1 seul jour de repos avant Jour = très pénible
-        else if(restBefore===0&&isWork(getVal(d-1))) pénibilité=0; // continuité normale
+        let rb=0;
+        for(let x=d-1;x>=-30;x--){const s=getVal(x);if(s==='R'||s==='C'||s==='F'||s==='WE_PROT')rb++;else break;}
+        if(rb===1) pén=8;
       }
-      return hRatio*10+dnImbalance*3+spScore*0.5+wishSam+wishSun+pénibilité;
+      return hRatio*10+dnImbalance*3+spScore*0.5+pén;
     };
 
-    // Candidats pour le Jour du WE : doit pouvoir travailler SAM et DIM
-    const eligWED=[...Array(n).keys()].filter(a=>{
-      if(isLocked(sch,a,d)||sch[a][d]!=='R'||!cwa(a,d,'D')||quotaJ[a]<=0) return false;
-      if(sch[a][d]==='WE_PROT') return false; // WE protégé avant congé
-      // RÈGLE 2 : vœu bloquant
-      if(hasWish(a,currentYear,currentMonth,d+1)) return false;
-      // Vérifier aussi le Dimanche si dans le mois
-      if(sunIdx<days){
-        if(sch[a][sunIdx]==='WE_PROT') return false;
-        if(hasWish(a,currentYear,currentMonth,sunIdx+1)) return false;
-        if(!cwa(a,sunIdx,'D')) return false;
-        if(quotaJ[a]<2) return false; // besoin de 2 quotas (sam+dim)
+    // ── Attribuer le JOUR du WE (Sam + Dim si dans le mois) ──
+    if(!hDsat){
+      // Candidats : libres Sam, pas de vœu Sam ni Dim, peuvent travailler les deux jours
+      // On simule temporairement le Samedi pour vérifier la contrainte du Dimanche
+      const eligD=[...Array(n).keys()].filter(a=>{
+        if(sch[a][d]!=='R') return false; // Sam non libre (WE_PROT inclus)
+        if(!cwa(a,d,'D')) return false;
+        if(quotaJ[a]<=0) return false;
+        if(hasWish(a,currentYear,currentMonth,d+1)) return false;
+        if(sunInMonth){
+          if(sch[a][sunIdx]!=='R') return false; // Dim non libre
+          if(hasWish(a,currentYear,currentMonth,sunIdx+1)) return false;
+          // Simuler le Samedi posé pour vérifier la contrainte du Dimanche
+          sch[a][d]='D_TMP';
+          const canSun=cwa(a,sunIdx,'D');
+          sch[a][d]='R'; // restaurer
+          if(!canSun) return false;
+          if(quotaJ[a]<2) return false; // besoin de 2 quotas
+        }
+        return true;
+      });
+      shuffle(eligD);
+      eligD.sort((a,b)=>scoreWE(a,false)-scoreWE(b,false));
+      if(eligD.length){
+        const ag=eligD[0];
+        sch[ag][d]='D'; quotaJ[ag]--;
+        if(sunInMonth){sch[ag][sunIdx]='D'; quotaJ[ag]--;}
+        hDsat=true;
       }
-      return true;
-    });
-
-    const eligWEN=[...Array(n).keys()].filter(a=>{
-      if(isLocked(sch,a,d)||sch[a][d]!=='R'||!cwa(a,d,'N')||quotaN[a]<=0) return false;
-      if(sch[a][d]==='WE_PROT') return false;
-      if(hasWish(a,currentYear,currentMonth,d+1)) return false;
-      if(sunIdx<days){
-        if(sch[a][sunIdx]==='WE_PROT') return false;
-        if(hasWish(a,currentYear,currentMonth,sunIdx+1)) return false;
-        if(!cwa(a,sunIdx,'N')) return false;
-        if(quotaN[a]<2) return false;
-      }
-      return true;
-    });
-
-    shuffle(eligWED); shuffle(eligWEN);
-    eligWED.sort((a,b)=>scoreWE(a,false)-scoreWE(b,false));
-    eligWEN.sort((a,b)=>scoreWE(a,true)-scoreWE(b,true));
-
-    // Attribuer Jour SAM+DIM
-    let hD=false;
-    for(let a=0;a<n;a++){const s=sType(sch[a][d]);if(s==='D')hD=true;}
-    if(!hD&&eligWED.length){
-      const ag=eligWED[0];
-      sch[ag][d]='D'; quotaJ[ag]--;
-      if(sunIdx<days&&sch[ag][sunIdx]==='R'){sch[ag][sunIdx]='D'; quotaJ[ag]--;}
     }
 
-    // Attribuer Nuit SAM+DIM (agent différent)
-    let hN=false;
-    for(let a=0;a<n;a++){const s=sType(sch[a][d]);if(s==='N')hN=true;}
-    const djSam=Array.from({length:n},(_,a)=>a).find(a=>sch[a][d]==='D');
-    const filteredN=eligWEN.filter(a=>a!==djSam);
-    if(!hN&&filteredN.length){
-      const ag=filteredN[0];
-      sch[ag][d]='N'; quotaN[ag]--;
-      if(sunIdx<days&&sch[ag][sunIdx]==='R'){sch[ag][sunIdx]='N'; quotaN[ag]--;}
+    // ── Attribuer la NUIT du WE (Sam + Dim si dans le mois) ──
+    if(!hNsat){
+      const djSam=Array.from({length:n},(_,a)=>a).find(a=>sch[a][d]==='D');
+      const eligN=[...Array(n).keys()].filter(a=>{
+        if(a===djSam) return false; // pas le même agent que le Jour
+        if(sch[a][d]!=='R') return false;
+        if(!cwa(a,d,'N')) return false;
+        if(quotaN[a]<=0) return false;
+        if(hasWish(a,currentYear,currentMonth,d+1)) return false;
+        if(sunInMonth){
+          if(sch[a][sunIdx]!=='R') return false;
+          if(hasWish(a,currentYear,currentMonth,sunIdx+1)) return false;
+          sch[a][d]='N_TMP';
+          const canSun=cwa(a,sunIdx,'N');
+          sch[a][d]='R';
+          if(!canSun) return false;
+          if(quotaN[a]<2) return false;
+        }
+        return true;
+      });
+      shuffle(eligN);
+      eligN.sort((a,b)=>scoreWE(a,true)-scoreWE(b,true));
+      if(eligN.length){
+        const ag=eligN[0];
+        sch[ag][d]='N'; quotaN[ag]--;
+        if(sunInMonth){sch[ag][sunIdx]='N'; quotaN[ag]--;}
+      }
     }
   }
 
-  /* ── Boucle principale : jours non-WE ── */
+  /* ── Boucle principale : jours non-WE et fériés ── */
   for(let d=0;d<days;d++){
     const dow=new Date(currentYear,currentMonth,d+1).getDay();
-    // Samedis et Dimanches déjà traités dans la pré-passe WE
+    // WE déjà traités dans la pré-passe — NE PAS retoucher
     if(dow===6||dow===0) continue;
 
     let asgD=false,asgN=false;
@@ -1602,6 +1612,7 @@ function fixCoverage(days,n,minRest,maxCons,sch,prevSch){
     return curH*0.01 + dnImbalance*3 + countAnnualSpecial(a,currentYear)*0.1;
   };
   for(let d=0;d<days;d++){
+    const dowFC=new Date(currentYear,currentMonth,d+1).getDay();
     const DW=[],NW=[],RW=[];
     for(let a=0;a<n;a++){
       const s=sType(sch[a][d]);
@@ -1613,9 +1624,13 @@ function fixCoverage(days,n,minRest,maxCons,sch,prevSch){
     while(DW.length>1){const ag=DW.pop();if(sch[ag][d]==='D'){sch[ag][d]='R';RW.push(ag);}}
     while(NW.length>1){const ag=NW.pop();if(sch[ag][d]==='N'){sch[ag][d]='R';RW.push(ag);}}
 
+    // Pour les WE (Sam+Dim) : si déjà 1 Jour ET 1 Nuit attribués, ne pas toucher
+    // Si incomplet (ex: 1 manquant), on complète mais SANS changer l'autre service
+    const isWEday=(dowFC===6||dowFC===0);
+
     if(DW.length===0){
       let cands=RW.filter(a=>cwa(a,d,'D')&&!hasWish(a,currentYear,currentMonth,d+1));
-      if(!cands.length) cands=RW.filter(a=>cwa(a,d,'D')); // fallback si tous ont un vœu
+      if(!cands.length) cands=RW.filter(a=>cwa(a,d,'D'));
       if(cands.length>0){
         cands.sort((a,b)=>getScore(a,false)-getScore(b,false));
         const ag=cands[0];
