@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 
 <html lang="fr">
@@ -210,7 +209,7 @@ function checkPassword(){
 </script>
 
 <header>
-  <div class="logo">Planning<span>Majors</span></div>
+  <div class="logo">Planning<span>Auto</span></div>
   <div class="legend">
     <div class="li"><div class="ld" style="background:var(--day)"></div>Jour</div>
     <div class="li"><div class="ld" style="background:var(--night)"></div>Nuit</div>
@@ -1192,7 +1191,7 @@ function generate(){
     const hasContent=existing.some(row=>row.some(v=>v!=='R'));
     if(hasContent){
       const ok=window.confirm(
-        ⚠️ Le planning de ${MF[currentMonth]} ${currentYear} contient déjà des données.\n\nLe régénérer effacera toutes les modifications manuelles.\n\nContinuer ?`
+        `⚠️ Le planning de ${MF[currentMonth]} ${currentYear} contient déjà des données.\n\nLe régénérer effacera toutes les modifications manuelles.\n\nContinuer ?`
       );
       if(!ok) return;
     }
