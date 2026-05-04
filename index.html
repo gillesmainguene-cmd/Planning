@@ -1308,6 +1308,104 @@ function canWorkStrict(sch,a,d,shiftType){
   const maxCons=+(document.getElementById('inp-maxcons')||{value:4}).value;
   return canWorkAs(sch,a,d,shiftType,minRest,maxCons,getPrevSch());
 }
+/* ========================================================
+   BLOC WE ATOMIQUE — fonction partagée par tous les algos
+   Pré-attribue TOUS les Sam+Dim du mois avant la boucle
+   principale. Le scoring est injecté via scoreFnD / scoreFnN.
+   ======================================================== */
+function assignWEBlocks(days, n, minRest, maxCons, sch, prevSch, scoreFnD, scoreFnN){
+  const cwa=(a,d,t)=>canWorkAs(sch,a,d,t,minRest,maxCons,prevSch);
+
+  for(let d=0;d<days;d++){
+    const dow=new Date(currentYear,currentMonth,d+1).getDay();
+    if(dow!==6) continue; // traiter uniquement les Samedis
+
+    const sunIdx=d+1;
+    const sunInMonth=sunIdx<days;
+
+    // Vérifier si le bloc est déjà attribué (absences/HS verrouillées)
+    let asgD=false, asgN=false;
+    for(let a=0;a<n;a++){
+      const t=sType(sch[a][d]);
+      if(t==='D') asgD=true;
+      if(t==='N') asgN=true;
+    }
+    if(asgD&&asgN) continue;
+
+    // ── Bloc JOUR Sam+Dim ──
+    if(!asgD){
+      const cands=[...Array(n).keys()].filter(a=>{
+        if(sch[a][d]!=='R') return false;
+        if(!cwa(a,d,'D')) return false;
+        if(sunInMonth){
+          if(sch[a][sunIdx]!=='R') return false;
+          sch[a][d]='D_TMP';
+          const ok=cwa(a,sunIdx,'D');
+          sch[a][d]='R';
+          if(!ok) return false;
+        }
+        return true;
+      });
+      shuffle(cands);
+      cands.sort((a,b)=>scoreFnD(a,d)-scoreFnD(b,d));
+      if(cands.length){
+        const ag=cands[0];
+        sch[ag][d]='D';
+        if(sunInMonth) sch[ag][sunIdx]='D';
+        asgD=true;
+      }
+    }
+
+    // ── Bloc NUIT Sam+Dim ──
+    if(!asgN){
+      const djSam=Array.from({length:n},(_,a)=>a).find(a=>sch[a][d]==='D');
+      const cands=[...Array(n).keys()].filter(a=>{
+        if(a===djSam) return false;
+        if(sch[a][d]!=='R') return false;
+        if(!cwa(a,d,'N')) return false;
+        if(sunInMonth){
+          if(sch[a][sunIdx]!=='R') return false;
+          sch[a][d]='N_TMP';
+          const ok=cwa(a,sunIdx,'N');
+          sch[a][d]='R';
+          if(!ok) return false;
+        }
+        return true;
+      });
+      shuffle(cands);
+      cands.sort((a,b)=>scoreFnN(a,d)-scoreFnN(b,d));
+      if(cands.length){
+        const ag=cands[0];
+        sch[ag][d]='N';
+        if(sunInMonth) sch[ag][sunIdx]='N';
+      }
+    }
+  }
+
+  // Gérer le cas où le 1er du mois est un Dimanche (Sam dans le mois précédent)
+  const firstDow=new Date(currentYear,currentMonth,1).getDay();
+  if(firstDow===0 && prevSch){
+    const prevDays=prevSch[0].length;
+    const satLast=prevDays-1;
+    let asgD=false,asgN=false;
+    for(let a=0;a<n;a++){const t=sType(sch[a][0]);if(t==='D')asgD=true;if(t==='N')asgN=true;}
+    if(!asgD){
+      const satJ=Array.from({length:n},(_,a)=>a).find(a=>isDay(prevSch[a][satLast]));
+      if(satJ!==undefined&&sch[satJ][0]==='R'&&cwa(satJ,0,'D')){sch[satJ][0]='D';asgD=true;}
+    }
+    if(!asgN){
+      const dj=Array.from({length:n},(_,a)=>a).find(a=>sch[a][0]==='D');
+      const satN=Array.from({length:n},(_,a)=>a).find(a=>isNight(prevSch[a][satLast])&&a!==dj);
+      if(satN!==undefined&&sch[satN][0]==='R'&&cwa(satN,0,'N')) sch[satN][0]='N';
+    }
+  }
+
+  // Nettoyer les marqueurs temporaires résiduels
+  for(let a=0;a<n;a++) for(let d=0;d<days;d++){
+    if(sch[a][d]==='D_TMP'||sch[a][d]==='N_TMP') sch[a][d]='R';
+  }
+}
+
 /* --- Equity WE/Feries + Jour/Nuit algo — réécriture séquentielle stricte ---
  * Règles appliquées (par ordre de priorité) :
  *  A. WE = bloc atomique Sam+Dim, même agent, même service (J ou N) — STRICT
@@ -1536,32 +1634,64 @@ function genEquityWE(days,n,minRest,maxCons,sch){
 function genCyclic(days, n, minRest, maxCons, sch) {
   const prevSch=getPrevSch();
   const cwa=(a,d,t)=>canWorkAs(sch,a,d,t,minRest,maxCons,prevSch);
-  const totalJ=days, totalN=days;
-  const baseJ=Math.floor(totalJ/n), baseN=Math.floor(totalN/n);
-  let remJ=totalJ%n, remN=totalN%n;
+
+  // Pré-passe : attribuer tous les blocs WE atomiquement
+  // Score cyclique : priorité à l'agent avec le moins d'heures cumulées
+  const scoreFn=(a)=>sch[a].reduce((s,v)=>s+shiftMin(v),0);
+  assignWEBlocks(days,n,minRest,maxCons,sch,prevSch,scoreFn,scoreFn);
+
+  // Quotas sur les jours non-WE restants
+  const nonWEdays=Array.from({length:days},(_,d)=>{const dow=new Date(currentYear,currentMonth,d+1).getDay();return dow!==0&&dow!==6;});
+  const wDays=nonWEdays.filter(Boolean).length;
+  const baseJ=Math.floor(wDays/n), baseN=Math.floor(wDays/n);
+  let remJ=wDays%n, remN=wDays%n;
   let quotas=Array.from({length:n},()=>({J:baseJ,N:baseN}));
   for(let i=0;i<n;i++){if(remJ>0){quotas[i].J++;remJ--;}if(remN>0){quotas[i].N++;remN--;}}
+
   for(let d=0;d<days;d++){
-    let candidatesJ=[];
-    for(let a=0;a<n;a++){if(!isLocked(sch,a,d)&&quotas[a].J>0&&cwa(a,d,'D')&&sch[a][d]==='R')candidatesJ.push(a);}
-    shuffle(candidatesJ);
-    if(candidatesJ.length>0){sch[candidatesJ[0]][d]='D';quotas[candidatesJ[0]].J--;}
-    let candidatesN=[];
-    for(let a=0;a<n;a++){if(!isLocked(sch,a,d)&&quotas[a].N>0&&cwa(a,d,'N')&&sch[a][d]==='R')candidatesN.push(a);}
-    shuffle(candidatesN);
-    if(candidatesN.length>0){sch[candidatesN[0]][d]='N';quotas[candidatesN[0]].N--;}
+    const dow=new Date(currentYear,currentMonth,d+1).getDay();
+    if(dow===0||dow===6) continue; // WE déjà traités
+
+    let asgD=false,asgN=false;
+    for(let a=0;a<n;a++){const t=sType(sch[a][d]);if(t==='D')asgD=true;if(t==='N')asgN=true;}
+    if(asgD&&asgN) continue;
+
+    if(!asgD){
+      let candidatesJ=[];
+      for(let a=0;a<n;a++){if(!isLocked(sch,a,d)&&quotas[a].J>0&&cwa(a,d,'D')&&sch[a][d]==='R')candidatesJ.push(a);}
+      shuffle(candidatesJ);
+      if(candidatesJ.length>0){sch[candidatesJ[0]][d]='D';quotas[candidatesJ[0]].J--;}
+    }
+    if(!asgN){
+      let candidatesN=[];
+      for(let a=0;a<n;a++){if(!isLocked(sch,a,d)&&quotas[a].N>0&&cwa(a,d,'N')&&sch[a][d]==='R')candidatesN.push(a);}
+      shuffle(candidatesN);
+      if(candidatesN.length>0){sch[candidatesN[0]][d]='N';quotas[candidatesN[0]].N--;}
+    }
   }
-  fixCoverage(days,n,minRest,maxCons,sch,prevSch);
+  fixCoverageNoWE(days,n,minRest,maxCons,sch,prevSch);
 }
 function genRandom(days,n,minRest,maxCons,sch){
   const prevSch=getPrevSch();
   const cwa=(a,d,t)=>canWorkAs(sch,a,d,t,minRest,maxCons,prevSch);
+
+  // Pré-passe WE : score = heures cumulées (le moins chargé en premier), vœux respectés
+  const scoreFn=(a,d)=>{
+    const h=sch[a].reduce((s,v)=>s+shiftMin(v),0);
+    const wish=hasWish(a,currentYear,currentMonth,d+1)?50:0;
+    return h+wish;
+  };
+  assignWEBlocks(days,n,minRest,maxCons,sch,prevSch,scoreFn,scoreFn);
+
   for(let d=0;d<days;d++){
+    const dow=new Date(currentYear,currentMonth,d+1).getDay();
+    if(dow===0||dow===6) continue; // WE déjà traités
+
     let asgD=false,asgN=false;
     for(let a=0;a<n;a++){if(sType(sch[a][d])==='D')asgD=true;if(sType(sch[a][d])==='N')asgN=true;}
     if(asgD&&asgN) continue;
-    let availD=[...Array(n).keys()].filter(a=>!isLocked(sch,a,d)&&cwa(a,d,'D'));
-    let availN=[...Array(n).keys()].filter(a=>!isLocked(sch,a,d)&&cwa(a,d,'N'));
+    let availD=[...Array(n).keys()].filter(a=>!isLocked(sch,a,d)&&cwa(a,d,'D')&&sch[a][d]==='R');
+    let availN=[...Array(n).keys()].filter(a=>!isLocked(sch,a,d)&&cwa(a,d,'N')&&sch[a][d]==='R');
     shuffle(availD); shuffle(availN);
     const totH=agents.map((_,a)=>sch[a].reduce((s,v)=>s+shiftMin(v),0));
     const maxH=Math.max(...totH)||1;
@@ -1572,19 +1702,43 @@ function genRandom(days,n,minRest,maxCons,sch){
     if(!asgD&&availD.length){sch[availD[0]][d]='D';asgD=true;}
     if(!asgN){const pick=availN.find(a=>sch[a][d]==='R');if(pick!==undefined)sch[pick][d]='N';}
   }
-  fixCoverage(days,n,minRest,maxCons,sch,prevSch);
+  fixCoverageNoWE(days,n,minRest,maxCons,sch,prevSch);
 }
 function genMinWE(days,n,minRest,maxCons,sch){
   const prevSch=getPrevSch();
   const cwa=(a,d,t)=>canWorkAs(sch,a,d,t,minRest,maxCons,prevSch);
   const wc=Array(n).fill(0);
+
+  // Pré-passe WE : score = nb de WE déjà travaillés (le moins en premier)
+  // Compte les WE déjà dans sch (blocs verrouillés éventuels)
+  const weScoreFn=(a)=>{
+    let c=0;
+    for(let d=0;d<days;d++){
+      const dow=new Date(currentYear,currentMonth,d+1).getDay();
+      if((dow===0||dow===6)&&(sch[a][d]==='D'||sch[a][d]==='N'||sch[a][d]==='HS_D'||sch[a][d]==='HS_N')) c++;
+    }
+    return c+(hasWish(a,currentYear,currentMonth,0)?50:0);
+  };
+  assignWEBlocks(days,n,minRest,maxCons,sch,prevSch,weScoreFn,weScoreFn);
+
+  // Compter les WE attribués pour initialiser wc
+  for(let a=0;a<n;a++){
+    for(let d=0;d<days;d++){
+      const dow=new Date(currentYear,currentMonth,d+1).getDay();
+      if((dow===0||dow===6)&&(sch[a][d]==='D'||sch[a][d]==='N')) wc[a]++;
+    }
+  }
+
   for(let d=0;d<days;d++){
+    const dow=new Date(currentYear,currentMonth,d+1).getDay();
+    if(dow===0||dow===6) continue; // WE déjà traités
+
     let asgD=false,asgN=false;
     for(let a=0;a<n;a++){if(sType(sch[a][d])==='D')asgD=true;if(sType(sch[a][d])==='N')asgN=true;}
     if(asgD&&asgN) continue;
-    const special=isWE(currentYear,currentMonth,d+1)||!!isFerie(currentYear,currentMonth,d+1);
-    let orderD=[...Array(n).keys()].filter(a=>!isLocked(sch,a,d)&&cwa(a,d,'D'));
-    let orderN=[...Array(n).keys()].filter(a=>!isLocked(sch,a,d)&&cwa(a,d,'N'));
+    const special=!!isFerie(currentYear,currentMonth,d+1); // jours fériés en semaine uniquement
+    let orderD=[...Array(n).keys()].filter(a=>!isLocked(sch,a,d)&&cwa(a,d,'D')&&sch[a][d]==='R');
+    let orderN=[...Array(n).keys()].filter(a=>!isLocked(sch,a,d)&&cwa(a,d,'N')&&sch[a][d]==='R');
     shuffle(orderD); shuffle(orderN);
     const totH=agents.map((_,a)=>sch[a].reduce((s,v)=>s+shiftMin(v),0));
     const maxH=Math.max(...totH)||1;
@@ -1594,7 +1748,7 @@ function genMinWE(days,n,minRest,maxCons,sch){
     if(!asgD&&orderD.length){sch[orderD[0]][d]='D';if(special)wc[orderD[0]]++;asgD=true;}
     if(!asgN){const pick=orderN.find(a=>sch[a][d]==='R');if(pick!==undefined){sch[pick][d]='N';if(special)wc[pick]++;}}
   }
-  fixCoverage(days,n,minRest,maxCons,sch,prevSch);
+  fixCoverageNoWE(days,n,minRest,maxCons,sch,prevSch);
 }
 // fixCoverageNoWE : comme fixCoverage mais ne touche JAMAIS les Sam/Dim
 // (leurs blocs ont déjà été attribués atomiquement par genEquityWE)
