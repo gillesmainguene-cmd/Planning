@@ -1992,10 +1992,31 @@ function renderStats(days,sch){
   const annBal=Math.max(...annWE)-Math.min(...annWE);
   const dayC=agents.map((_,a)=>countMonthDay(a,currentYear,currentMonth));
   const nightC=agents.map((_,a)=>countMonthNight(a,currentYear,currentMonth));
-  const dnBal=Math.max(...dayC,...nightC)-Math.min(...dayC,...nightC);
+  // Calcul de l'écart J/N normalisé : on compare les ratios J/(J+N) et N/(J+N)
+  // par agent pour ne pas pénaliser les agents ayant des absences/congés ce mois.
+  // Un agent avec 0 service travaillé (tout en congé) est exclu du calcul.
+  const dnRatios=agents.map((_,a)=>{
+    const tot=dayC[a]+nightC[a];
+    if(tot===0) return null; // exclu : aucun service ce mois (congé total)
+    return {d:dayC[a]/tot, n:nightC[a]/tot, tot};
+  }).filter(r=>r!==null);
+  // On compare les ratios Jour entre agents actifs (valeur entre 0 et 1)
+  // Écart en "services équivalents" = différence de ratio × nb moyen de services
+  const avgTot=dnRatios.length?dnRatios.reduce((s,r)=>s+r.tot,0)/dnRatios.length:0;
+  const ratioD=dnRatios.map(r=>r.d);
+  const dnRatioBal=dnRatios.length>1?(Math.max(...ratioD)-Math.min(...ratioD))*avgTot:0;
+  const dnBal=Math.round(dnRatioBal); // en services équivalents, arrondi
   const annDayC=agents.map((_,a)=>countAnnualDay(a,currentYear));
   const annNightC=agents.map((_,a)=>countAnnualNight(a,currentYear));
-  const annDNBal=Math.max(...annDayC,...annNightC)-Math.min(...annDayC,...annNightC);
+  // Idem pour l'annuel : exclure les agents sans aucun service sur l'année
+  const annDNRatios=agents.map((_,a)=>{
+    const tot=annDayC[a]+annNightC[a];
+    if(tot===0) return null;
+    return {d:annDayC[a]/tot, tot};
+  }).filter(r=>r!==null);
+  const annAvgTot=annDNRatios.length?annDNRatios.reduce((s,r)=>s+r.tot,0)/annDNRatios.length:0;
+  const annRatioD=annDNRatios.map(r=>r.d);
+  const annDNBal=annDNRatios.length>1?Math.round((Math.max(...annRatioD)-Math.min(...annRatioD))*annAvgTot):0;
   const absDays=absences.reduce((s,a)=>{
     const f=new Date(a.from),t=new Date(a.to);
     let c=0;for(let d=new Date(f);d<=t;d.setDate(d.getDate()+1))if(d.getFullYear()===currentYear&&d.getMonth()===currentMonth)c++;
@@ -2018,10 +2039,10 @@ function renderStats(days,sch){
   let ah='';
   if(pct===100) ah+=`<div class="alert a-ok">✓ Couverture 24h/7j complète — ${MF[currentMonth]} ${currentYear}.</div>`;
   else ah+=`<div class="alert a-warn">⚠ ${days-cov} jour(s) sans couverture : jours ${miss.join(', ')}. Utilisez "Auto-équilibrage H.Supp".</div>`;
-  if(bal>24) ah+=`<div class="alert a-warn">⚠ Écart horaire mensuel : ${bal}h. Régénérez ou ajustez les H.Supp.</div>`;
-  if(dnBal>2) ah+=`<div class="alert a-warn">⚠ Déséquilibre Jour/Nuit mensuel : écart de ${dnBal} services entre agents. Utilisez l'algo "Équité WE/Fériés prioritaire".</div>`;
-  else if(dnBal<=1) ah+=`<div class="alert a-ok">✓ Équité Jour/Nuit mensuelle bonne (écart ≤ ${dnBal} service).</div>`;
-  if(annDNBal>6) ah+=`<div class="alert a-warn">⚠ Déséquilibre Jour/Nuit annuel : ${annDNBal} services d'écart. Régénérez les mois en mode équité.</div>`;
+  if(bal>24*60) ah+=`<div class="alert a-warn">⚠ Écart horaire mensuel : ${fmtH(bal)}. Régénérez ou ajustez les H.Supp.</div>`;
+  if(dnBal>2) ah+=`<div class="alert a-warn">⚠ Déséquilibre Jour/Nuit mensuel : écart de ${dnBal} services entre agents (hors congés). Utilisez l'algo "Équité WE/Fériés prioritaire".</div>`;
+  else if(dnBal<=1) ah+=`<div class="alert a-ok">✓ Équité Jour/Nuit mensuelle bonne (écart ≤ ${dnBal} service, hors congés).</div>`;
+  if(annDNBal>6) ah+=`<div class="alert a-warn">⚠ Déséquilibre Jour/Nuit annuel : ${annDNBal} services d'écart (hors congés). Régénérez les mois en mode équité.</div>`;
   if(annBal>6) ah+=`<div class="alert a-warn">⚠ Écart annuel WE+fériés : ${annBal} jours entre agents. Utilisez l'algo "Équité WE/Fériés prioritaire".</div>`;
   else if(annBal>3) ah+=`<div class="alert a-info">ⓘ Écart WE+fériés annuel : ${annBal} jours — acceptable mais surveillez l'évolution.</div>`;
   else if(annBal<=3&&agents.every((_,a)=>countAnnualSpecial(a,currentYear)>0)) ah+=`<div class="alert a-ok">✓ Équité WE+fériés annuelle bonne (écart ≤ ${annBal} j).</div>`;
