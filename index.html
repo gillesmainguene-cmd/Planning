@@ -37,8 +37,6 @@ input[type=number]{width:76px}
 .btn{font-family:var(--fh);font-size:.75rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:8px 18px;border-radius:var(--r);border:none;cursor:pointer;transition:all .15s;white-space:nowrap;display:inline-flex;align-items:center;gap:5px}
 .btn-primary{background:var(--day);color:#0a0c10;box-shadow:0 2px 8px rgba(245,200,66,.25)}
 .btn-primary:hover{background:#ffd254;transform:translateY(-1px);box-shadow:0 4px 12px rgba(245,200,66,.35)}
-.btn-primary.btn-regen{background:linear-gradient(135deg,#f59e0b,#ef4444)!important;color:#fff!important;animation:pulse-regen 2s infinite;}
-@keyframes pulse-regen{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.4)}50%{box-shadow:0 0 0 6px rgba(239,68,68,0)}}
 .btn-ghost{background:var(--surface2);border:1px solid var(--border);color:var(--dim)}
 .btn-ghost:hover{border-color:var(--night);color:var(--night);background:rgba(107,159,255,.08)}
 .btn-teal{background:rgba(45,212,191,.1);border:1px solid rgba(45,212,191,.4);color:var(--teal)}
@@ -77,7 +75,6 @@ td.cell{padding:2px 1px;text-align:center;position:relative}
 .s-R{background:transparent;border-color:transparent;color:var(--muted)}
 .s-C{background:rgba(61,214,140,.18);border-color:rgba(61,214,140,.45);color:#4de89e}
 .s-F{background:rgba(192,132,252,.16);border-color:rgba(192,132,252,.4);color:#d4a8fc}
-.s-ES{background:rgba(45,212,191,.14);border-color:rgba(45,212,191,.45);color:#2dd4bf}
 .hs-badge{position:absolute;top:1px;right:2px;font-size:.46rem;color:var(--orange);font-weight:800;line-height:1}
 .ferie-badge{position:absolute;top:1px;left:2px;font-size:.46rem;color:var(--pink);font-weight:800;line-height:1}
 td.we-col{background:rgba(107,159,255,.04)}
@@ -120,14 +117,12 @@ td.today-col .sb{box-shadow:inset 0 0 0 2px var(--day)}
 #drag-ghost.ghost-D{background:rgba(245,200,66,.95);border-color:var(--day);color:#0a0c10}
 #drag-ghost.ghost-N{background:rgba(107,159,255,.95);border-color:var(--night);color:#fff}
 #drag-ghost.ghost-R{background:rgba(30,35,50,.95);border-color:var(--border);color:var(--dim)}
-#drag-ghost.ghost-ES{background:rgba(45,212,191,.95);border-color:var(--teal);color:#0a1a18}
 .edit-toolbar{display:flex;align-items:center;gap:8px;padding:8px 14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);margin-bottom:10px;font-size:.7rem;flex-wrap:wrap;color:var(--text)}
 .edit-mode-btn{font-family:var(--fh);font-size:.72rem;font-weight:700;padding:6px 14px;border-radius:6px;border:1px solid var(--border);cursor:pointer;background:var(--surface2);color:var(--dim);transition:all .15s;letter-spacing:.03em}
 .edit-mode-btn:hover{color:var(--text);border-color:var(--dim)}
 .edit-mode-btn.active-D{background:rgba(245,200,66,.2);border-color:var(--day);color:var(--day)}
 .edit-mode-btn.active-N{background:rgba(107,159,255,.2);border-color:var(--night);color:var(--night)}
 .edit-mode-btn.active-R{background:rgba(100,110,140,.2);border-color:var(--dim);color:var(--dim)}
-.edit-mode-btn.active-ES{background:rgba(45,212,191,.2);border-color:var(--teal);color:var(--teal)}
 .constraint-badge{font-size:.63rem;padding:3px 9px;border-radius:10px;background:rgba(255,95,109,.15);border:1px solid rgba(255,95,109,.4);color:#ff7f8a;display:none}
 .constraint-badge.show{display:inline-flex}
 .undo-btn{margin-left:auto;font-family:var(--fh);font-size:.68rem;font-weight:700;padding:5px 12px;border-radius:6px;border:1px solid var(--border);cursor:pointer;background:var(--surface2);color:var(--dim)}
@@ -153,60 +148,8 @@ td.today-col .sb{box-shadow:inset 0 0 0 2px var(--day)}
 @media(max-width:900px){.annual-grid{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:600px){header,.panel,.stats-bar{padding-left:14px;padding-right:14px}.stats-bar{margin:0 -14px}}
 </style>
-<!-- Firebase SDK -->
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 </head>
 <body>
-
-<!-- ÉCRAN MOT DE PASSE -->
-
-<div id="lock-screen" style="display:none;position:fixed;inset:0;background:#0d1117;z-index:99999;display:flex;align-items:center;justify-content:center">
-  <div style="background:#161b22;border:1px solid #30363d;border-radius:16px;padding:40px 36px;width:320px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,.6)">
-    <div style="font-size:2rem;margin-bottom:8px">🔒</div>
-    <div style="font-size:1.1rem;font-weight:700;color:#e6edf3;margin-bottom:4px">Planning Majors</div>
-    <div style="font-size:.8rem;color:#8b949e;margin-bottom:24px">Accès restreint — entrez le mot de passe</div>
-    <input id="pwd-input" type="password" placeholder="Mot de passe…"
-      style="width:100%;box-sizing:border-box;background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:10px 14px;color:#e6edf3;font-size:.95rem;margin-bottom:12px;outline:none"
-      onkeydown="if(event.key==='Enter') checkPassword()">
-    <button onclick="checkPassword()"
-      style="width:100%;padding:10px;background:linear-gradient(135deg,#f5c842,#f59e0b);border:none;border-radius:8px;font-weight:700;font-size:.9rem;color:#0a0c10;cursor:pointer">
-      Accéder →
-    </button>
-    <div id="pwd-error" style="color:#f87171;font-size:.78rem;margin-top:10px;display:none">Mot de passe incorrect.</div>
-  </div>
-</div>
-
-<script>
-// ── Mot de passe ──────────────────────────────────────────
-// Pour le changer : modifier la valeur ci-dessous
-const APP_PASSWORD = 'majors2025';
-const PWD_KEY = 'planningauto-auth';
-
-function checkPassword(){
-  const val = document.getElementById('pwd-input').value;
-  if(val === APP_PASSWORD){
-    sessionStorage.setItem(PWD_KEY, '1');
-    document.getElementById('lock-screen').style.display = 'none';
-  } else {
-    const err = document.getElementById('pwd-error');
-    err.style.display = 'block';
-    document.getElementById('pwd-input').value = '';
-    document.getElementById('pwd-input').focus();
-    setTimeout(()=> err.style.display = 'none', 3000);
-  }
-}
-
-// Vérifier au chargement
-(function(){
-  if(sessionStorage.getItem(PWD_KEY) !== '1'){
-    document.getElementById('lock-screen').style.display = 'flex';
-    setTimeout(()=> document.getElementById('pwd-input').focus(), 100);
-  } else {
-    document.getElementById('lock-screen').style.display = 'none';
-  }
-})();
-</script>
 
 <header>
   <div class="logo">Planning<span>Majors</span></div>
@@ -217,7 +160,6 @@ function checkPassword(){
     <div class="li"><div class="ld" style="background:rgba(192,132,252,.5)"></div>Formation</div>
     <div class="li"><div class="ld" style="background:rgba(255,159,74,.6)"></div>H.Supp</div>
     <div class="li"><div class="ld" style="background:rgba(244,114,182,.6)"></div>Férié</div>
-    <div class="li"><div class="ld" style="background:rgba(45,212,191,.5)"></div>Escorte</div>
   </div>
 </header>
 
@@ -228,7 +170,6 @@ function checkPassword(){
   <button class="tab" onclick="showTab('equity')">⚖ Équité mensuelle</button>
   <button class="tab" onclick="showTab('annual')">📊 Équité annuelle</button>
   <button class="tab" onclick="showTab('feries')">🎌 Jours fériés</button>
-  <button class="tab" onclick="showTab('settings')">⚙ Paramètres</button>
 </div>
 
 <!-- Drag ghost -->
@@ -250,27 +191,17 @@ function checkPassword(){
       </select>
     </div>
     <div style="display:flex;align-items:center;gap:7px"><label>Repos min.</label><input type="number" id="inp-rest" value="2" min="1" max="4"></div>
-    <div style="display:flex;align-items:center;gap:7px"><label>Max consécutifs</label>
-      <select id="inp-maxcons">
-        <option value="1">1 jour</option>
-        <option value="2">2 jours</option>
-        <option value="3">3 jours</option>
-        <option value="4" selected>4 jours (max)</option>
-      </select>
-    </div>
-    <button class="btn btn-primary" id="btn-generate" onclick="generate()">⟳ Générer</button>
+    <button class="btn btn-primary" onclick="generate()">⟳ Générer</button>
     <button class="btn btn-ghost" onclick="exportCSV()">↓ CSV</button>
   </div>
   <div class="agent-panel" id="agent-panel"><div class="agent-panel-label">👤 Noms des agents (modifiables)</div></div>
   <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;padding:8px 12px;background:rgba(91,140,255,.06);border:1px solid rgba(91,140,255,.18);border-radius:var(--r);font-size:.67rem;color:var(--dim)">
     <span>📋 <strong style="color:var(--text)">Règles de rotation appliquées :</strong></span>
-    <span>☾→☾ Nuits consécutives autorisées</span>
+    <span>☾→☾ Nuits consécutives autorisées (max 4)</span>
     <span>·</span>
     <span>🚫 Jour interdit directement après une Nuit</span>
     <span>·</span>
-    <span>🔁 Max consécutifs configurable (1–4)</span>
-    <span>·</span>
-    <span>📅 WE = même service Sam+Dim par le même agent</span>
+    <span>🔁 Max 4 services consécutifs (J ou N)</span>
     <span>·</span>
     <span>😴×<em>n</em> Repos minimum configurable entre blocs</span>
   </div>
@@ -281,7 +212,6 @@ function checkPassword(){
     <button class="edit-mode-btn active-D" id="btn-paint-D" onclick="setPaintMode('D')">☀ Jour</button>
     <button class="edit-mode-btn" id="btn-paint-N" onclick="setPaintMode('N')">☾ Nuit</button>
     <button class="edit-mode-btn" id="btn-paint-R" onclick="setPaintMode('R')">— Repos</button>
-    <button class="edit-mode-btn" id="btn-paint-ES" onclick="setPaintMode('ES')" title="Escorte 9h — hors planification automatique">🚐 Escorte</button>
     <span style="color:var(--border)">|</span>
     <span style="font-size:.65rem;color:var(--muted)">Clic-glisser pour peindre · Clic droit pour cycler D→N→R</span>
     <span class="constraint-badge" id="constraint-badge">⚠ Contrainte de rotation</span>
@@ -389,8 +319,7 @@ const DUR={
   HS_D: 12*60+15,
   HS_N: 12*60+15,
   C : 5*60+51,    // 05h51 = 351 min (congé)
-  F : 7*60+30,      // 07h30 = 450 min (formation)
-  ES: 9*60,        // 9h00 = 540 min — Escorte (hors planification automatique)
+  F : 7*60+30,     // 07h30 = 450 min (formation)
   R : 0,
 };
 
@@ -404,232 +333,38 @@ function fmtH(mins){
   return m===0 ? `${h}h` : `${h}h${String(m).padStart(2,'0')}`;
 }
 
-/* ================================================================
-   FIREBASE — Stockage partagé en temps réel
-   ================================================================
-   1. Créer un projet sur https://console.firebase.google.com
-   2. Aller dans "Realtime Database" → Créer une base → Mode test
-   3. Aller dans Paramètres du projet → "Vos applications" → Web (</>)
-   4. Copier les valeurs ci-dessous depuis votre config Firebase
-   ================================================================ */
-const FIREBASE_CONFIG = {
-  apiKey:      "AIzaSyAqG5SaAE6LGgescpM8gIHnOTdhB7lFWeQ",
-  authDomain:  "planningmajors.firebaseapp.com",
-  databaseURL: "https://planningmajors-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId:   "planningmajors",
-};
-const FIREBASE_PATH = 'planning'; // chemin dans la base de données
+const STORAGE_KEY='planningauto-state';
 
-const STORAGE_KEY = 'planningauto-state'; // clé localStorage (secours)
-
-let _db = null;          // référence Firebase initialisée
-let _fbReady = false;    // Firebase opérationnel
-let _saveTimer = null;
-
-/* ── Initialisation Firebase ──────────────────────────────── */
-async function initFirebase(){
-  // Vérifier que la config a été remplie
-  if(FIREBASE_CONFIG.apiKey === 'VOTRE_API_KEY'){
-    console.warn('Firebase non configuré — mode localStorage uniquement.');
-    _fbReady = false;
-    return false;
-  }
-  try{
-    const app = firebase.initializeApp(FIREBASE_CONFIG);
-    _db = firebase.database(app);
-    _fbReady = true;
-    return true;
-  } catch(e){
-    console.warn('Erreur init Firebase:', e.message);
-    _fbReady = false;
-    return false;
-  }
-}
-
-/* ── Sauvegarde ───────────────────────────────────────────── */
 function saveState(){
-  clearTimeout(_saveTimer);
-  _saveTimer = setTimeout(_doSave, 800);
-}
-
-function _getStateObj(){
-  return {
-    agents, absences, hsList, wishes, feriesByYear, schedules,
-    currentMonth, currentYear,
-    selAlgo:  document.getElementById('sel-algo')?.value  || 'equityWE',
-    minRest: +document.getElementById('inp-rest')?.value  || 2,
-    maxCons: +document.getElementById('inp-maxcons')?.value || 4,
-    ferieYear:+document.getElementById('ferie-year')?.value || currentYear,
-    annYear:  +document.getElementById('ann-year')?.value || currentYear,
-  };
-}
-
-function _doSave(){
-  const state = _getStateObj();
-  // Toujours sauvegarder en local en secours
-  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(e){}
-
-  if(!_fbReady){
-    showSaveIndicator('local');
-    return;
-  }
-  showSaveIndicator('saving');
-  _db.ref(FIREBASE_PATH).set(state)
-    .then(()=> showSaveIndicator('ok'))
-    .catch(e=>{ console.warn('Erreur Firebase:', e.message); showSaveIndicator('error'); });
-}
-
-/* ── Chargement ───────────────────────────────────────────── */
-async function loadState(){
-  if(!_fbReady){
-    // Fallback localStorage
-    try{
-      const json = localStorage.getItem(STORAGE_KEY);
-      return json ? JSON.parse(json) : null;
-    } catch(e){ return null; }
-  }
   try{
-    const snap = await _db.ref(FIREBASE_PATH).get();
-    if(snap.exists()) return snap.val();
-    return null;
-  } catch(e){
-    console.warn('Erreur lecture Firebase:', e.message);
-    try{
-      const json = localStorage.getItem(STORAGE_KEY);
-      return json ? JSON.parse(json) : null;
-    } catch(e2){ return null; }
-  }
-}
-
-/* ── Indicateur visuel ────────────────────────────────────── */
-function showSaveIndicator(status){
-  let el = document.getElementById('save-indicator');
-  if(!el){
-    el = document.createElement('div');
-    el.id = 'save-indicator';
-    el.style.cssText = 'position:fixed;bottom:16px;right:16px;padding:6px 14px;border-radius:8px;font-size:.75rem;font-weight:600;z-index:9999;transition:opacity .5s;cursor:default';
-    document.body.appendChild(el);
-  }
-  el.style.opacity = '1';
-  if(status === 'saving'){
-    el.textContent = '💾 Sauvegarde…';
-    el.style.background = 'rgba(99,102,241,.9)'; el.style.color = '#fff';
-  } else if(status === 'ok'){
-    el.textContent = '✓ Sauvegardé (partagé)';
-    el.style.background = 'rgba(34,197,94,.9)'; el.style.color = '#fff';
-    setTimeout(()=> el.style.opacity = '0', 2500);
-  } else if(status === 'local'){
-    el.textContent = '💾 Sauvegardé (local)';
-    el.style.background = 'rgba(245,158,11,.9)'; el.style.color = '#fff';
-    setTimeout(()=> el.style.opacity = '0', 2500);
-  } else {
-    el.textContent = '⚠ Erreur sauvegarde Firebase';
-    el.style.background = 'rgba(239,68,68,.9)'; el.style.color = '#fff';
-  }
-}
-
-/* ── Export / Import JSON ─────────────────────────────────── */
-function exportJSON(){
-  const blob = new Blob([JSON.stringify(_getStateObj(), null, 2)], {type:'application/json'});
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `planning_${new Date().toISOString().slice(0,10)}.json`;
-  a.click();
-}
-function importJSON(){
-  const input = document.createElement('input');
-  input.type = 'file'; input.accept = '.json,application/json';
-  input.onchange = e => {
-    const file = e.target.files[0]; if(!file) return;
-    const reader = new FileReader();
-    reader.onload = ev => {
-      try{
-        const state = JSON.parse(ev.target.result);
-        restoreState(state);
-        saveState();
-        switchMonth();
-        notif('Planning importé avec succès.', 'ok');
-      } catch(err){ notif('Erreur lors de la lecture du fichier JSON.', 'warn'); }
+    const state={
+      agents,
+      absences,
+      hsList,
+      wishes,
+      feriesByYear,
+      schedules,
+      currentMonth,
+      currentYear,
+      selAlgo:document.getElementById('sel-algo')?.value||'equityWE',
+      minRest:+document.getElementById('inp-rest')?.value||2,
+      ferieYear:+document.getElementById('ferie-year')?.value||currentYear,
+      annYear:+document.getElementById('ann-year')?.value||currentYear,
     };
-    reader.readAsText(file);
-  };
-  input.click();
-}
-
-/* ── Configuration Firebase dynamique ─────────────────────── */
-const FB_CFG_KEY = 'planningauto-fbconfig';
-
-async function applyFirebaseConfig(){
-  const apiKey     = document.getElementById('cfg-apiKey')?.value.trim();
-  const databaseURL= document.getElementById('cfg-dbUrl')?.value.trim();
-  const projectId  = document.getElementById('cfg-projectId')?.value.trim();
-  const res        = document.getElementById('cfg-result');
-
-  if(!apiKey || !databaseURL || !projectId){
-    if(res) res.innerHTML = '<span style="color:var(--red)">⚠ Remplir les 3 champs.</span>';
-    return;
-  }
-
-  // Sauvegarder la config dans localStorage pour la retrouver au rechargement
-  try{ localStorage.setItem(FB_CFG_KEY, JSON.stringify({apiKey, databaseURL, projectId})); } catch(e){}
-
-  // Mettre à jour la config en mémoire
-  FIREBASE_CONFIG.apiKey      = apiKey;
-  FIREBASE_CONFIG.databaseURL = databaseURL;
-  FIREBASE_CONFIG.projectId   = projectId;
-  FIREBASE_CONFIG.authDomain  = projectId + '.firebaseapp.com';
-
-  if(res) res.innerHTML = '<span style="color:var(--muted)">Connexion en cours…</span>';
-
-  // Réinitialiser Firebase
-  try{
-    // Supprimer les apps Firebase existantes
-    (firebase.apps || []).forEach(app => app.delete());
-    _db = null; _fbReady = false;
-  } catch(e){}
-
-  const ok = await initFirebase();
-  if(ok){
-    // Recharger les données depuis Firebase
-    const state = await loadState();
-    if(state){ restoreState(state); switchMonth(); }
-    if(res) res.innerHTML = '<span style="color:#4ade80">✓ Connecté ! Les données sont maintenant partagées.</span>';
-    updateFirebaseStatus();
-  } else {
-    if(res) res.innerHTML = '<span style="color:var(--red)">✗ Connexion échouée. Vérifiez les valeurs saisies.</span>';
-    updateFirebaseStatus();
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch(e){
+    console.warn('Impossible de sauvegarder les données localement', e);
   }
 }
 
-function updateFirebaseStatus(){
-  const box = document.getElementById('fb-status-box');
-  if(!box) return;
-
-  // Pré-remplir les champs si config sauvegardée
+function loadState(){
   try{
-    const saved = JSON.parse(localStorage.getItem(FB_CFG_KEY)||'null');
-    if(saved){
-      if(document.getElementById('cfg-apiKey')) document.getElementById('cfg-apiKey').value = saved.apiKey||'';
-      if(document.getElementById('cfg-dbUrl'))  document.getElementById('cfg-dbUrl').value  = saved.databaseURL||'';
-      if(document.getElementById('cfg-projectId')) document.getElementById('cfg-projectId').value = saved.projectId||'';
-    }
-  } catch(e){}
-
-  if(_fbReady){
-    box.innerHTML = `
-      <span style="color:#4ade80;font-weight:700">✓ Firebase connecté</span><br>
-      Base : <code style="color:var(--accent)">${FIREBASE_CONFIG.databaseURL}</code><br>
-      Projet : <code style="color:var(--accent)">${FIREBASE_CONFIG.projectId}</code><br>
-      <span style="color:var(--muted)">Toutes les modifications sont sauvegardées en temps réel et visibles par tous les utilisateurs.</span>`;
-  } else if(FIREBASE_CONFIG.apiKey === 'VOTRE_API_KEY'){
-    box.innerHTML = `
-      <span style="color:var(--orange);font-weight:700">⚠ Firebase non configuré</span><br>
-      Les données sont sauvegardées <b>localement</b> sur ce navigateur uniquement.<br>
-      Remplissez la configuration ci-dessous pour activer le partage entre postes.`;
-  } else {
-    box.innerHTML = `
-      <span style="color:var(--red);font-weight:700">✗ Firebase non connecté</span><br>
-      Config présente mais connexion échouée. Vérifiez les valeurs et réessayez.`;
+    const json=localStorage.getItem(STORAGE_KEY);
+    if(!json) return null;
+    return JSON.parse(json);
+  } catch(e){
+    console.warn('Impossible de charger l état enregistré', e);
+    return null;
   }
 }
 
@@ -712,41 +447,19 @@ function isSpecialDay(year,month,day){
 /* ========================================================
    INIT
    ======================================================== */
-(async function init(){
-  const now = new Date();
-  currentMonth = now.getMonth();
-  currentYear  = now.getFullYear();
-
-  // Charger la config Firebase depuis localStorage si elle existe
-  try{
-    const saved = JSON.parse(localStorage.getItem(FB_CFG_KEY)||'null');
-    if(saved && saved.apiKey && saved.apiKey !== 'VOTRE_API_KEY'){
-      FIREBASE_CONFIG.apiKey      = saved.apiKey;
-      FIREBASE_CONFIG.databaseURL = saved.databaseURL;
-      FIREBASE_CONFIG.projectId   = saved.projectId;
-      FIREBASE_CONFIG.authDomain  = saved.projectId + '.firebaseapp.com';
-    }
-  } catch(e){}
-
-  // Initialiser Firebase (échoue silencieusement si pas configuré)
-  await initFirebase();
-
-  // Afficher un écran de chargement
-  const wrap = document.getElementById('planning-wrap');
-  const loadMsg = document.createElement('div');
-  loadMsg.style.cssText = 'text-align:center;padding:40px;color:var(--muted);font-size:.9rem';
-  loadMsg.textContent = _fbReady ? '⏳ Chargement depuis Firebase…' : '⏳ Chargement…';
-  if(wrap) wrap.prepend(loadMsg);
-
-  const savedState = await loadState();
-  if(loadMsg) loadMsg.remove();
-
-  if(savedState){ restoreState(savedState); }
+(function init(){
+  const now=new Date();
+  const savedState=loadState();
+  currentMonth=now.getMonth();
+  currentYear=now.getFullYear();
+  if(savedState){
+    restoreState(savedState);
+  }
 
   // Month select
   const sm=document.getElementById('sel-month');
   MF.forEach((m,i)=>{const o=document.createElement('option');o.value=i;o.textContent=m;if(i===currentMonth)o.selected=true;sm.appendChild(o);});
-  sm.onchange=()=>{currentMonth=+sm.value;switchMonth();};
+  sm.onchange=()=>{currentMonth=+sm.value;generate()};
 
   // Year selects
   const referenceYears=[currentYear, savedState?.currentYear || currentYear, savedState?.ferieYear || currentYear, savedState?.annYear || currentYear, now.getFullYear()];
@@ -765,14 +478,12 @@ function isSpecialDay(year,month,day){
   if(savedState?.currentYear) document.getElementById('sel-year').value=savedState.currentYear;
   if(savedState?.ferieYear) document.getElementById('ferie-year').value=savedState.ferieYear;
   if(savedState?.annYear) document.getElementById('ann-year').value=savedState.annYear;
-  document.getElementById('sel-year').onchange=()=>{currentYear=+document.getElementById('sel-year').value;switchMonth();};
+  document.getElementById('sel-year').onchange=()=>{currentYear=+document.getElementById('sel-year').value;generate()};
 
   if(savedState?.selAlgo) document.getElementById('sel-algo').value=savedState.selAlgo;
   if(typeof savedState?.minRest==='number') document.getElementById('inp-rest').value=savedState.minRest;
-  if(typeof savedState?.maxCons==='number') document.getElementById('inp-maxcons').value=savedState.maxCons;
   document.getElementById('sel-algo').onchange=saveState;
   document.getElementById('inp-rest').onchange=saveState;
-  document.getElementById('inp-maxcons').onchange=saveState;
 
   const y=currentYear,m=String(currentMonth+1).padStart(2,'0');
   document.getElementById('abs-from').value=`${y}-${m}-01`;
@@ -795,14 +506,11 @@ function isSpecialDay(year,month,day){
     renderStats(new Date(currentYear,currentMonth+1,0).getDate(), schedules[currentYear][currentMonth]);
     renderAbsList();
     renderHSList();
-    // Mois existant : bouton en mode Régénérer
-    const btn=document.getElementById('btn-generate');
-    if(btn){btn.textContent='⟳ Régénérer';btn.title='Attention : cela écrasera le planning existant pour ce mois';btn.classList.add('btn-regen');}
   } else {
-    switchMonth();
-  updateFirebaseStatus();
+    generate();
   }
 
+  window.addEventListener('beforeunload', saveState);
 })();
 
 function showTab(id){
@@ -827,7 +535,7 @@ function renderAgentPanel(){
     const tag=document.createElement('div');tag.className='agent-tag';
     tag.innerHTML=`<div class="av" style="background:${AVC[i]}">${name.charAt(0).toUpperCase()}</div>
       <input type="text" value="${name}" maxlength="14"
-        onchange="agents[${i}]=this.value.trim()||'Agent ${i+1}';this.previousElementSibling.textContent=agents[${i}].charAt(0).toUpperCase();populateAgentSelects();saveState();switchMonth();">`;
+        onchange="agents[${i}]=this.value.trim()||'Agent ${i+1}';this.previousElementSibling.textContent=agents[${i}].charAt(0).toUpperCase();populateAgentSelects();generate()">`;
     panel.appendChild(tag);
   });
 }
@@ -852,16 +560,16 @@ function addFerie(){
     feriesByYear[year].push({date,name});
     feriesByYear[year].sort((a,b)=>a.date.localeCompare(b.date));
   }
-  renderFerieList();refreshCurrentMonth();
+  renderFerieList();generate();
 }
 function removeFerie(year,idx){
   feriesByYear[year].splice(idx,1);
-  renderFerieList();refreshCurrentMonth();
+  renderFerieList();generate();
 }
 function resetFeries(){
   const year=+document.getElementById('ferie-year').value;
   feriesByYear[year]=getFeries(year);
-  renderFerieList();refreshCurrentMonth();
+  renderFerieList();generate();
 }
 function renderFerieList(){
   const year=+document.getElementById('ferie-year').value;
@@ -888,9 +596,9 @@ function addAbsence(){
   const note=document.getElementById('abs-note').value.trim();
   if(!from||!to||from>to){alert('Dates invalides');return;}
   absences.push({agent,type,from,to,note});
-  renderAbsList();refreshCurrentMonth();
+  renderAbsList();generate();
 }
-function removeAbsence(i){absences.splice(i,1);renderAbsList();refreshCurrentMonth();}
+function removeAbsence(i){absences.splice(i,1);renderAbsList();generate();}
 function renderAbsList(){
   const el=document.getElementById('abs-list');
   if(!absences.length){el.innerHTML='<div class="abs-empty">Aucune absence enregistrée.</div>';return;}
@@ -956,9 +664,9 @@ function addHS(){
   if(!date){alert('Date invalide');return;}
   if(hsList.find(h=>h.agent===agent&&h.date===date)){alert('H.Supp déjà enregistrée');return;}
   hsList.push({agent,date,shift});
-  renderHSList();refreshCurrentMonth();
+  renderHSList();generate();
 }
-function removeHS(i){hsList.splice(i,1);renderHSList();refreshCurrentMonth();}
+function removeHS(i){hsList.splice(i,1);renderHSList();generate();}
 function autoHS(){
   const days=new Date(currentYear,currentMonth+1,0).getDate();
   const sch=schedules[currentYear]&&schedules[currentYear][currentMonth];
@@ -992,7 +700,7 @@ function autoHS(){
       }
     }
   }
-  renderHSList();refreshCurrentMonth();
+  renderHSList();generate();
   notif(added?`${added} H.Supp auto-assignée(s) en respectant l'équité WE/fériés.`:'Aucun manque de couverture.', added?'hs':'ok');
 }
 function renderHSList(){
@@ -1080,131 +788,18 @@ function agentTotalHours(agentIdx){
   return sch[agentIdx].reduce((s,v)=>s+shiftMin(v),0);}
 
 /* ========================================================
-   NAVIGATION ENTRE MOIS (sans écraser le planning existant)
+   GENERATION ALGORITHM
    ======================================================== */
-function switchMonth(){
-  currentMonth=+document.getElementById('sel-month').value;
-  currentYear=+document.getElementById('sel-year').value;
-  const days=new Date(currentYear,currentMonth+1,0).getDate();
-  const sch=schedules[currentYear]&&schedules[currentYear][currentMonth];
-
-  // Mettre à jour le libellé du bouton Générer selon si le mois est vierge ou non
-  const btn=document.getElementById('btn-generate');
-  if(btn){
-    if(sch){
-      btn.textContent='⟳ Régénérer';
-      btn.title='Attention : cela écrasera le planning existant pour ce mois';
-      btn.classList.add('btn-regen');
-    } else {
-      btn.textContent='⟳ Générer';
-      btn.title='Générer le planning pour ce mois';
-      btn.classList.remove('btn-regen');
-    }
-  }
-
-  if(sch){
-    // Mois déjà généré ou peint : afficher tel quel
-    renderPlanning(days, sch);
-    renderStats(days, sch);
-    renderAbsList();
-    renderHSList();
-  } else {
-    // Mois vierge : afficher un planning vide (que des repos)
-    const n=agents.length;
-    const emptyMsg=document.getElementById('planning-empty-msg');
-    if(emptyMsg) emptyMsg.style.display='block';
-    // Rendre un planning vide visuellement
-    if(!schedules[currentYear]) schedules[currentYear]={};
-    const empty=Array.from({length:n},()=>Array(days).fill('R'));
-    renderPlanning(days, empty);
-    renderStats(days, empty);
-    renderAbsList();
-    renderHSList();
-    // NE PAS sauvegarder le planning vide dans schedules (il reste non généré)
-    delete schedules[currentYear][currentMonth];
-  }
-}
-
-
-
-/**
- * refreshCurrentMonth() — Re-applique absences + HS sur le mois affiché
- * SANS réinitialiser le planning (les autres mois ne sont pas touchés).
- * À utiliser quand une absence/HS/férié change mais que l'utilisateur
- * n'a PAS cliqué "Générer".
- */
-function refreshCurrentMonth(){
-  const sch=schedules[currentYear]&&schedules[currentYear][currentMonth];
-  if(!sch) return; // Mois pas encore généré, rien à faire
-  const days=sch[0].length;
-  const n=agents.length;
-
-  // Réinitialise seulement les cases qui ne sont pas verrouillées manuellement
-  // (on repart des valeurs 'R' pour les cases non-abs/non-HS, puis on réapplique)
-  // Pour ne pas écraser les éditions manuelles (D/N peints), on conserve l'état actuel
-  // et on se contente de reforcer absences + HS sur les bonnes cases.
-  for(let a=0;a<n;a++){
-    for(let d=1;d<=days;d++){
-      const abs=absOnDay(a,currentYear,currentMonth,d);
-      if(abs){
-        sch[a][d-1]=abs.type;
-      } else if(sch[a][d-1]==='C'||sch[a][d-1]==='F'){
-        // L'absence a été supprimée → repasse en repos (ES est conservé)
-        sch[a][d-1]='R';
-      }
-    }
-  }
-  for(const h of hsList){
-    const ds=new Date(h.date);
-    if(ds.getFullYear()===currentYear&&ds.getMonth()===currentMonth){
-      const d=ds.getDate()-1;
-      sch[h.agent][d]='HS_'+h.shift;
-    }
-  }
-  // Retire les HS supprimées (cases HS_D/HS_N sans entrée dans hsList)
-  for(let a=0;a<n;a++){
-    for(let d=0;d<days;d++){
-      const v=sch[a][d];
-      if(v==='HS_D'||v==='HS_N'){
-        const ds=`${currentYear}-${String(currentMonth+1).padStart(2,'0')}-${String(d+1).padStart(2,'0')}`;
-        if(!hsList.find(h=>h.agent===a&&h.date===ds)){
-          sch[a][d]='R';
-        }
-      }
-    }
-  }
-
-  renderPlanning(days,sch);
-  renderStats(days,sch);
-  renderAbsList();
-  renderHSList();
-  saveState();
-}
-
 function generate(){
   currentMonth=+document.getElementById('sel-month').value;
   currentYear=+document.getElementById('sel-year').value;
-
-  // Demander confirmation si le mois est déjà généré ou modifié
-  const existing=schedules[currentYear]&&schedules[currentYear][currentMonth];
-  if(existing){
-    const hasContent=existing.some(row=>row.some(v=>v!=='R'));
-    if(hasContent){
-      const ok=window.confirm(
-        `⚠️ Le planning de ${MF[currentMonth]} ${currentYear} contient déjà des données.\n\nLe régénérer effacera toutes les modifications manuelles.\n\nContinuer ?`
-      );
-      if(!ok) return;
-    }
-  }
-
   const algo=document.getElementById('sel-algo').value;
   const minRest=+document.getElementById('inp-rest').value;
-  const maxCons=+document.getElementById('inp-maxcons').value||4;
   const days=new Date(currentYear,currentMonth+1,0).getDate();
   const n=agents.length;
   initFeries(currentYear);
 
-  // Init schedule for this month (réinitialisation complète intentionnelle)
+  // Init schedule for this month
   if(!schedules[currentYear]) schedules[currentYear]={};
   const sch=Array.from({length:n},()=>Array(days).fill('R'));
   schedules[currentYear][currentMonth]=sch;
@@ -1226,19 +821,16 @@ function generate(){
   }
 
   // 3. Choose algorithm
-  if(algo==='equityWE') genEquityWE(days,n,minRest,maxCons,sch);
-  else if(algo==='cyclic') genCyclic(days,n,minRest,maxCons,sch);
-  else if(algo==='random') genRandom(days,n,minRest,maxCons,sch);
-  else genMinWE(days,n,minRest,maxCons,sch);
+  if(algo==='equityWE') genEquityWE(days,n,minRest,sch);
+  else if(algo==='cyclic') genCyclic(days,n,minRest,sch);
+  else if(algo==='random') genRandom(days,n,minRest,sch);
+  else genMinWE(days,n,minRest,sch);
 
   renderPlanning(days,sch);
   renderStats(days,sch);
   renderAbsList();
   renderHSList();
   saveState();
-  // Mois maintenant généré → bouton passe en "Régénérer"
-  const btn=document.getElementById('btn-generate');
-  if(btn){btn.textContent='⟳ Régénérer';btn.title='Attention : cela écrasera le planning existant pour ce mois';btn.classList.add('btn-regen');}
 }
 
 /* --- helpers --- */
@@ -1249,493 +841,282 @@ function isNight(s){return s==='N'||s==='HS_N';}
 function isDay(s){return s==='D'||s==='HS_D';}
 
 // Core constraint check: can agent 'a' work shift of type 'D' or 'N' on day 'd'?
-// prevSch = schedule du mois précédent (pour vérifier les contraintes en début de mois)
-function canWorkAs(sch,a,d,shiftType,minRest,maxCons,prevSch){
-  maxCons = maxCons||4;
+function canWorkAs(sch,a,d,shiftType,minRest){
+  // Cannot work if locked (absence/HS already set)
   if(isLocked(sch,a,d)) return false;
 
-  const getVal=(x)=>{
-    if(x>=0){
-      const v=sch[a][x];
-      // Traiter les marqueurs temporaires comme des shifts réels
-      if(v==='D_TMP') return 'D';
-      if(v==='N_TMP') return 'N';
-      return v;
-    }
-    if(prevSch) return prevSch[a][prevSch[a].length+x];
-    return 'R';
-  };
+  // Rule 1 — D forbidden directly after N
+  if(shiftType==='D' && d>0 && isNight(sch[a][d-1])) return false;
 
-  if(shiftType==='D'){
-    const prev=getVal(d-1);
-    if(prev==='N'||prev==='HS_N') return false;
-  }
-
+  // Rule 2 — max 4 consecutive working shifts
   let cons=0;
-  for(let x=d-1;x>=-(prevSch?prevSch[a].length:0);x--){
-    const s=getVal(x);
-    if(s==='D'||s==='N'||s==='HS_D'||s==='HS_N') cons++;
-    else break;
+  for(let x=d-1;x>=0;x--){
+    if(isWork(sch[a][x])) cons++; else break;
   }
-  if(cons>=maxCons) return false;
+  if(cons>=4) return false;
 
+  // Rule 3 — minimum rest days between blocks
+  // Count consecutive rest days immediately before this slot
   let restBefore=0;
-  for(let x=d-1;x>=-(prevSch?prevSch[a].length:0);x--){
-    const s=getVal(x);
-    if(s==='R'||s==='C'||s==='F'||s==='WE_PROT') restBefore++;
-    else break;
+  for(let x=d-1;x>=0;x--){
+    const s=sch[a][x];
+    if(s==='R'||s==='C'||s==='F') restBefore++; else break;
   }
-  if(restBefore>0&&restBefore<minRest){
+  // If there was a rest period shorter than minRest after a work block, block it
+  if(restBefore>0 && restBefore<minRest){
     const lastWork=d-1-restBefore;
-    const lw=getVal(lastWork);
-    if(lw==='D'||lw==='N'||lw==='HS_D'||lw==='HS_N') return false;
+    if(lastWork>=0 && isWork(sch[a][lastWork])) return false;
   }
 
   return true;
 }
 function shuffle(arr){for(let i=arr.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[arr[i],arr[j]]=[arr[j],arr[i]];}}
 
-// Retourne le planning du mois précédent (pour les contraintes en début de mois)
-function getPrevSch(){
-  let pm=currentMonth-1, py=currentYear;
-  if(pm<0){pm=11;py--;}
-  return schedules[py]&&schedules[py][pm]||null;
-}
-
-// Used by drag/paint editor
-function canWorkStrict(sch,a,d,shiftType){
-  const minRest=+(document.getElementById('inp-rest')||{value:2}).value;
-  const maxCons=+(document.getElementById('inp-maxcons')||{value:4}).value;
-  return canWorkAs(sch,a,d,shiftType,minRest,maxCons,getPrevSch());
-}
-/* --- Equity WE/Feries + Jour/Nuit algo — réécriture séquentielle stricte ---
- * Règles appliquées (par ordre de priorité) :
- *  A. WE = bloc atomique Sam+Dim, même agent, même service (J ou N) — STRICT
- *  B. WE avant congé = repos protégé automatique
- *  C. Vœux de repos = bloquant (exclusion de la liste, fallback si aucun dispo)
- *  D. Pénibilité : malus Jour après 1 seul jour de repos
- *  E. Quotas J/N équitables, continuité inter-mois via prevSch
- * ----------------------------------------------------------------- */
-function genEquityWE(days,n,minRest,maxCons,sch){
-  const prevSch=getPrevSch();
-  const cwa=(a,d,t)=>canWorkAs(sch,a,d,t,minRest,maxCons,prevSch);
-
-  /* ── B. WE avant congé : marquer en WE_PROT ── */
-  for(let a=0;a<n;a++){
-    for(const abs of absences){
-      if(abs.agent!==a) continue;
-      const from=new Date(abs.from);
-      if(from.getFullYear()!==currentYear||from.getMonth()!==currentMonth) continue;
-      const fromDay=from.getDate()-1;
-      for(let d=fromDay-1;d>=Math.max(0,fromDay-7);d--){
-        const dow=new Date(currentYear,currentMonth,d+1).getDay();
-        if((dow===0||dow===6)&&sch[a][d]==='R') sch[a][d]='WE_PROT';
-      }
-    }
-  }
-
-  /* ── E. Calcul des quotas J/N par agent ── */
-  const lockedD=Array(n).fill(0),lockedN=Array(n).fill(0),lockedO=Array(n).fill(0);
-  for(let a=0;a<n;a++) for(let d=0;d<days;d++){
-    const v=sch[a][d];
-    if(v==='HS_D') lockedD[a]++;
-    else if(v==='HS_N') lockedN[a]++;
-    else if(v==='C'||v==='F'||v==='WE_PROT') lockedO[a]++;
-  }
-  const totalJ=days-lockedD.reduce((s,v)=>s+v,0);
-  const totalN=days-lockedN.reduce((s,v)=>s+v,0);
-  const baseJ=Math.floor(totalJ/n), baseN=Math.floor(totalN/n);
-  let remJ=totalJ%n, remN=totalN%n;
-  const annSpOrder=[...Array(n).keys()].sort((a,b)=>countAnnualSpecial(a,currentYear)-countAnnualSpecial(b,currentYear));
-  const quotaJ=Array(n).fill(baseJ), quotaN=Array(n).fill(baseN);
-  for(let i=0;i<n&&remJ>0;i++){quotaJ[annSpOrder[i]]++;remJ--;}
-  for(let i=0;i<n&&remN>0;i++){quotaN[annSpOrder[i]]++;remN--;}
-  for(let a=0;a<n;a++){
-    const cap=days-lockedD[a]-lockedN[a]-lockedO[a];
-    if(quotaJ[a]+quotaN[a]>cap){
-      const ex=quotaJ[a]+quotaN[a]-cap;
-      const rN=Math.min(ex,quotaN[a]); quotaN[a]-=rN;
-      quotaJ[a]-=Math.min(ex-rN,quotaJ[a]);
-    }
-  }
-
-  /* ── Fonctions de score ── */
-  const penDay=(a,d)=>{
-    // Malus si reprise en Jour après exactement 1 repos
-    const gv=(x)=>x>=0?sch[a][x]:(prevSch?prevSch[a][prevSch[a].length+x]:'R');
-    let rb=0;
-    for(let x=d-1;x>=-30;x--){const s=gv(x);if(s==='R'||s==='C'||s==='F'||s==='WE_PROT')rb++;else break;}
-    return rb===1?8:0;
-  };
-  const score=(a,d,forNight)=>{
-    const curH=sch[a].reduce((s,v)=>s+shiftMin(v),0);
-    const targetH=forNight?quotaN[a]*DUR.N:quotaJ[a]*DUR.D;
-    const hRatio=targetH>0?curH/targetH:(curH>0?2:0);
-    const mJ=sch[a].filter(v=>v==='D'||v==='HS_D').length;
-    const mN=sch[a].filter(v=>v==='N'||v==='HS_N').length;
-    const dnImb=forNight?(mN-mJ):(mJ-mN);
-    const sp=countAnnualSpecial(a,currentYear)*0.5;
-    const pén=forNight?0:penDay(a,d);
-    return hRatio*10+dnImb*3+sp+pén;
-  };
-
-  /* ── Boucle séquentielle unique — traite chaque jour dans l'ordre ── */
-  for(let d=0;d<days;d++){
-    const dow=new Date(currentYear,currentMonth,d+1).getDay();
-    const isSat=dow===6;
-    const isSun=dow===0;
-    const isFer=!!isFerie(currentYear,currentMonth,d+1);
-
-    // Vérifier la couverture actuelle du jour
-    let asgD=false,asgN=false;
-    for(let a=0;a<n;a++){
-      const t=sType(sch[a][d]);
-      if(t==='D') asgD=true;
-      if(t==='N') asgN=true;
-    }
-    if(asgD&&asgN) continue;
-
-    /* ══ CAS SAMEDI : attribuer Sam ET Dim atomiquement ══ */
-    if(isSat){
-      const sunIdx=d+1;
-      const sunInMonth=sunIdx<days;
-
-      // ── Jour Sam+Dim ──
-      if(!asgD){
-        const cands=[...Array(n).keys()].filter(a=>{
-          if(sch[a][d]!=='R') return false;         // Sam non libre
-          if(!cwa(a,d,'D')) return false;
-          if(quotaJ[a]<(sunInMonth?2:1)) return false;
-          if(hasWish(a,currentYear,currentMonth,d+1)) return false;
-          if(sunInMonth){
-            if(sch[a][sunIdx]!=='R') return false;   // Dim non libre
-            if(hasWish(a,currentYear,currentMonth,sunIdx+1)) return false;
-            // Simuler Sam posé pour tester Dim
-            sch[a][d]='D_TMP';
-            const ok=cwa(a,sunIdx,'D');
-            sch[a][d]='R';
-            if(!ok) return false;
-          }
-          return true;
-        });
-        shuffle(cands);
-        cands.sort((a,b)=>score(a,d,false)-score(b,d,false));
-        if(cands.length){
-          const ag=cands[0];
-          sch[ag][d]='D'; quotaJ[ag]--;
-          if(sunInMonth){sch[ag][sunIdx]='D'; quotaJ[ag]--;}
-          asgD=true;
-        }
-      }
-
-      // ── Nuit Sam+Dim ──
-      if(!asgN){
-        const djSam=Array.from({length:n},(_,a)=>a).find(a=>sch[a][d]==='D');
-        const cands=[...Array(n).keys()].filter(a=>{
-          if(a===djSam) return false;                // pas le même que le Jour
-          if(sch[a][d]!=='R') return false;
-          if(!cwa(a,d,'N')) return false;
-          if(quotaN[a]<(sunInMonth?2:1)) return false;
-          if(hasWish(a,currentYear,currentMonth,d+1)) return false;
-          if(sunInMonth){
-            if(sch[a][sunIdx]!=='R') return false;
-            if(hasWish(a,currentYear,currentMonth,sunIdx+1)) return false;
-            sch[a][d]='N_TMP';
-            const ok=cwa(a,sunIdx,'N');
-            sch[a][d]='R';
-            if(!ok) return false;
-          }
-          return true;
-        });
-        shuffle(cands);
-        cands.sort((a,b)=>score(a,d,true)-score(b,d,true));
-        if(cands.length){
-          const ag=cands[0];
-          sch[ag][d]='N'; quotaN[ag]--;
-          if(sunInMonth){sch[ag][sunIdx]='N'; quotaN[ag]--;}
-        }
-      }
-      continue; // Sam+Dim traités → passer au jour suivant
-    }
-
-    /* ══ CAS DIMANCHE : DÉJÀ ATTRIBUÉ par la pré-passe Samedi — ne rien faire ══
-       Sauf si le Dimanche est le 1er du mois (pas de Samedi précédent dans ce mois) */
-    if(isSun){
-      // Si déjà attribué → skip
-      if(asgD&&asgN) continue;
-      // Sinon (1er du mois = Dimanche, Samedi dans le mois précédent)
-      // → lire qui a travaillé le Samedi dans prevSch et forcer le même service
-      if(prevSch){
-        const prevDays=prevSch[0].length;
-        const satLastDay=prevDays-1;
-        // Trouver l'agent Jour et Nuit du Samedi précédent
-        if(!asgD){
-          const satJAgent=Array.from({length:n},(_,a)=>a).find(a=>isDay(prevSch[a][satLastDay]));
-          if(satJAgent!==undefined && sch[satJAgent][d]==='R' && cwa(satJAgent,d,'D')){
-            sch[satJAgent][d]='D'; if(quotaJ[satJAgent]>0) quotaJ[satJAgent]--;
-            asgD=true;
-          }
-        }
-        if(!asgN){
-          const djDim=Array.from({length:n},(_,a)=>a).find(a=>sch[a][d]==='D');
-          const satNAgent=Array.from({length:n},(_,a)=>a).find(a=>isNight(prevSch[a][satLastDay])&&a!==djDim);
-          if(satNAgent!==undefined && sch[satNAgent][d]==='R' && cwa(satNAgent,d,'N')){
-            sch[satNAgent][d]='N'; if(quotaN[satNAgent]>0) quotaN[satNAgent]--;
-          }
-        }
-      }
-      // Si toujours pas couvert → fallback équité
-      if(!asgD){
-        const el=[...Array(n).keys()].filter(a=>sch[a][d]==='R'&&cwa(a,d,'D')&&quotaJ[a]>0&&!hasWish(a,currentYear,currentMonth,d+1));
-        const fb=el.length?el:[...Array(n).keys()].filter(a=>sch[a][d]==='R'&&cwa(a,d,'D')&&quotaJ[a]>0);
-        shuffle(fb); fb.sort((a,b)=>score(a,d,false)-score(b,d,false));
-        if(fb.length){sch[fb[0]][d]='D';quotaJ[fb[0]]--;}
-      }
-      if(!asgN){
-        const dj=Array.from({length:n},(_,a)=>a).find(a=>sch[a][d]==='D');
-        const el=[...Array(n).keys()].filter(a=>sch[a][d]==='R'&&cwa(a,d,'N')&&quotaN[a]>0&&a!==dj&&!hasWish(a,currentYear,currentMonth,d+1));
-        const fb=el.length?el:[...Array(n).keys()].filter(a=>sch[a][d]==='R'&&cwa(a,d,'N')&&quotaN[a]>0&&a!==dj);
-        shuffle(fb); fb.sort((a,b)=>score(a,d,true)-score(b,d,true));
-        if(fb.length){sch[fb[0]][d]='N';quotaN[fb[0]]--;}
-      }
-      continue;
-    }
-
-    /* ══ CAS NORMAL (Lundi→Vendredi + Fériés) ══ */
-    // C. Vœux bloquants : exclure d'abord, fallback si liste vide
-    const mkElig=(t,excludeDay)=>{
-      const base=[...Array(n).keys()].filter(a=>
-        sch[a][d]==='R'&&cwa(a,d,t)&&(t==='D'?quotaJ[a]>0:quotaN[a]>0)&&(excludeDay===undefined||a!==excludeDay)
-      );
-      const noWish=base.filter(a=>!hasWish(a,currentYear,currentMonth,d+1));
-      return noWish.length?noWish:base;
-    };
-
-    let eligD=mkElig('D');
-    shuffle(eligD); eligD.sort((a,b)=>score(a,d,false)-score(b,d,false));
-    if(!asgD&&eligD.length){
-      const ag=eligD[0]; sch[ag][d]='D'; quotaJ[ag]--; asgD=true;
-    }
-    const dj=Array.from({length:n},(_,a)=>a).find(a=>sch[a][d]==='D');
-    let eligN=mkElig('N',dj);
-    shuffle(eligN); eligN.sort((a,b)=>score(a,d,true)-score(b,d,true));
-    if(!asgN&&eligN.length){
-      const ag=eligN[0]; sch[ag][d]='N'; quotaN[ag]--;
-    }
-  }
-
-  // Nettoyer marqueurs temporaires
-  for(let a=0;a<n;a++) for(let d=0;d<days;d++){
-    if(sch[a][d]==='WE_PROT'||sch[a][d]==='D_TMP'||sch[a][d]==='N_TMP') sch[a][d]='R';
-  }
-
-  // fixCoverage uniquement pour les jours NON-WE manquants
-  fixCoverageNoWE(days,n,minRest,maxCons,sch,prevSch);
-}
-
-function genCyclic(days, n, minRest, maxCons, sch) {
-  const prevSch=getPrevSch();
-  const cwa=(a,d,t)=>canWorkAs(sch,a,d,t,minRest,maxCons,prevSch);
-  const totalJ=days, totalN=days;
-  const baseJ=Math.floor(totalJ/n), baseN=Math.floor(totalN/n);
-  let remJ=totalJ%n, remN=totalN%n;
-  let quotas=Array.from({length:n},()=>({J:baseJ,N:baseN}));
-  for(let i=0;i<n;i++){if(remJ>0){quotas[i].J++;remJ--;}if(remN>0){quotas[i].N++;remN--;}}
-  for(let d=0;d<days;d++){
-    let candidatesJ=[];
-    for(let a=0;a<n;a++){if(!isLocked(sch,a,d)&&quotas[a].J>0&&cwa(a,d,'D')&&sch[a][d]==='R')candidatesJ.push(a);}
-    shuffle(candidatesJ);
-    if(candidatesJ.length>0){sch[candidatesJ[0]][d]='D';quotas[candidatesJ[0]].J--;}
-    let candidatesN=[];
-    for(let a=0;a<n;a++){if(!isLocked(sch,a,d)&&quotas[a].N>0&&cwa(a,d,'N')&&sch[a][d]==='R')candidatesN.push(a);}
-    shuffle(candidatesN);
-    if(candidatesN.length>0){sch[candidatesN[0]][d]='N';quotas[candidatesN[0]].N--;}
-  }
-  fixCoverage(days,n,minRest,maxCons,sch,prevSch);
-}
-function genRandom(days,n,minRest,maxCons,sch){
-  const prevSch=getPrevSch();
-  const cwa=(a,d,t)=>canWorkAs(sch,a,d,t,minRest,maxCons,prevSch);
+/* --- Equity WE/Feries + Jour/Nuit algo (WE complet : Sam+Dim ensemble) --- */
+function genEquityWE(days,n,minRest,sch){
   for(let d=0;d<days;d++){
     let asgD=false,asgN=false;
     for(let a=0;a<n;a++){if(sType(sch[a][d])==='D')asgD=true;if(sType(sch[a][d])==='N')asgN=true;}
     if(asgD&&asgN) continue;
-    let availD=[...Array(n).keys()].filter(a=>!isLocked(sch,a,d)&&cwa(a,d,'D'));
-    let availN=[...Array(n).keys()].filter(a=>!isLocked(sch,a,d)&&cwa(a,d,'N'));
-    shuffle(availD); shuffle(availN);
+
+    const dow=new Date(currentYear,currentMonth,d+1).getDay();
+    const special=dow===0||dow===6||!!isFerie(currentYear,currentMonth,d+1);
+    const isSunday=dow===0;
+    const satIdx=d-1; // Samedi précédent si Dimanche
+
+    const annSp=agents.map((_,a)=>countAnnualSpecial(a,currentYear));
+    const annD=agents.map((_,a)=>countAnnualDay(a,currentYear));
+    const annN=agents.map((_,a)=>countAnnualNight(a,currentYear));
+    const totH=agents.map((_,a)=>sch[a].reduce((s,v)=>s+shiftMin(v),0));
+    const maxSp=Math.max(...annSp)||1, maxH=Math.max(...totH)||1;
+
+    // Ajout : calcul du nombre de jours et nuits déjà attribués ce mois
+    const monthD=agents.map((_,a)=>sch[a].filter(v=>v==='D'||v==='HS_D').length);
+    const monthN=agents.map((_,a)=>sch[a].filter(v=>v==='N'||v==='HS_N').length);
+    const avgD=monthD.reduce((a,b)=>a+b,0)/n;
+    const avgN=monthN.reduce((a,b)=>a+b,0)/n;
+
+    const score=(a,forNight)=>{
+      // Pénalise l'écart J/N pour chaque agent
+      const dnBalance = forNight ? (monthN[a] - avgN) : (monthD[a] - avgD);
+      const dnPenalty = Math.abs(monthD[a] - monthN[a]) * 0.2; // pondération à ajuster si besoin
+      const spScore=special?0.6*(annSp[a]/maxSp):0;
+      const hScore=0.3*(totH[a]/maxH);
+      const wishBonus=hasWish(a,currentYear,currentMonth,d+1)?-0.2:0;
+      // Ajout : dnBalance et dnPenalty
+      return spScore+hScore+0.1*(dnBalance/10)+dnPenalty+wishBonus;
+    };
+
+    let eligD=[...Array(n).keys()].filter(a=>!isLocked(sch,a,d)&&canWorkAs(sch,a,d,'D',minRest)&&sch[a][d]==='R');
+    let eligN=[...Array(n).keys()].filter(a=>!isLocked(sch,a,d)&&canWorkAs(sch,a,d,'N',minRest)&&sch[a][d]==='R');
+
+    shuffle(eligD);
+    shuffle(eligN);
+
+    if(isSunday && satIdx>=0 && satIdx<days){
+      const workedSat=a=>{const s=sch[a][satIdx];return s==='D'||s==='N'||s==='HS_D'||s==='HS_N';};
+      const prefD=eligD.filter(workedSat);
+      const restD=eligD.filter(a=>!workedSat(a));
+      prefD.sort((a,b)=>score(a,false)-score(b,false)||(a-b));
+      restD.sort((a,b)=>score(a,false)-score(b,false)||(a-b));
+      eligD=[...prefD,...restD];
+
+      const prefN=eligN.filter(workedSat);
+      const restN=eligN.filter(a=>!workedSat(a));
+      prefN.sort((a,b)=>score(a,true)-score(b,true)||(a-b));
+      restN.sort((a,b)=>score(a,true)-score(b,true)||(a-b));
+      eligN=[...prefN,...restN];
+    } else {
+      eligD.sort((a,b)=>score(a,false)-score(b,false)||(a-b));
+      eligN.sort((a,b)=>score(a,true)-score(b,true)||(a-b));
+    }
+
+    if(!asgD&&eligD.length){sch[eligD[0]][d]='D';asgD=true;}
+    if(!asgN){
+      const pick=eligN.find(a=>sch[a][d]==='R');
+      if(pick!==undefined) sch[pick][d]='N';
+    }
+  }
+  fixCoverage(days,n,sch);
+}
+
+
+function genCyclic(days, n, minRest, sch) {
+  // Répartition équitable des shifts J/N/R sur le mois
+  // 1. Calculer le nombre total de shifts à affecter
+  const totalShifts = days * n;
+  // On veut 1 J et 1 N par jour, le reste en repos
+  const totalJ = days;
+  const totalN = days;
+  const totalR = totalShifts - totalJ - totalN;
+
+  // 2. Répartir équitablement les shifts par agent
+  const baseJ = Math.floor(totalJ / n);
+  const baseN = Math.floor(totalN / n);
+  const baseR = Math.floor(totalR / n);
+  let remJ = totalJ % n;
+  let remN = totalN % n;
+  let remR = totalR % n;
+
+  // Pour chaque agent, définir son quota cible
+  let quotas = Array.from({ length: n }, () => ({ J: baseJ, N: baseN, R: baseR }));
+  for (let i = 0; i < n; i++) {
+    if (remJ > 0) { quotas[i].J++; remJ--; }
+    if (remN > 0) { quotas[i].N++; remN--; }
+    if (remR > 0) { quotas[i].R++; remR--; }
+  }
+
+  // 3. Pour chaque jour, affecter un J et un N à des agents qui n'ont pas dépassé leur quota
+  // On mélange l'ordre des agents pour chaque jour pour éviter les biais
+  for (let d = 0; d < days; d++) {
+    // Affecter le jour
+    let candidatesJ = [];
+    for (let a = 0; a < n; a++) {
+      if (!isLocked(sch, a, d) && quotas[a].J > 0 && canWorkAs(sch, a, d, 'D', minRest) && sch[a][d] === 'R') {
+        candidatesJ.push(a);
+      }
+    }
+    shuffle(candidatesJ);
+    if (candidatesJ.length > 0) {
+      sch[candidatesJ[0]][d] = 'D';
+      quotas[candidatesJ[0]].J--;
+    }
+
+    // Affecter la nuit
+    let candidatesN = [];
+    for (let a = 0; a < n; a++) {
+      if (!isLocked(sch, a, d) && quotas[a].N > 0 && canWorkAs(sch, a, d, 'N', minRest) && sch[a][d] === 'R') {
+        candidatesN.push(a);
+      }
+    }
+    shuffle(candidatesN);
+    if (candidatesN.length > 0) {
+      sch[candidatesN[0]][d] = 'N';
+      quotas[candidatesN[0]].N--;
+    }
+  }
+
+  // 4. Remplir le reste en repos (déjà initialisé à 'R')
+  fixCoverage(days, n, sch);
+}
+function genRandom(days,n,minRest,sch){
+  // Aléatoire contraint : mélange les candidats à chaque affectation
+  for(let d=0;d<days;d++){
+    let asgD=false,asgN=false;
+    for(let a=0;a<n;a++){if(sType(sch[a][d])==='D')asgD=true;if(sType(sch[a][d])==='N')asgN=true;}
+    if(asgD&&asgN) continue;
+    let availD=[...Array(n).keys()].filter(a=>!isLocked(sch,a,d)&&canWorkAs(sch,a,d,'D',minRest));
+    let availN=[...Array(n).keys()].filter(a=>!isLocked(sch,a,d)&&canWorkAs(sch,a,d,'N',minRest));
+    // Mélange pour éviter le biais d'ordre
+    shuffle(availD);
+    shuffle(availN);
+    // Prioritize by equity: agents with fewer hours
     const totH=agents.map((_,a)=>sch[a].reduce((s,v)=>s+shiftMin(v),0));
     const maxH=Math.max(...totH)||1;
     const scoreByHours=a=>totH[a]/maxH;
     const withoutWish=a=>!hasWish(a,currentYear,currentMonth,d+1);
-    const sortFn=(a,b)=>{const wa=withoutWish(a)?0:1,wb=withoutWish(b)?0:1;if(wa!==wb)return wa-wb;return scoreByHours(a)-scoreByHours(b)||a-b;};
-    availD.sort(sortFn); availN.sort(sortFn);
+    // Combine: prefer agents without wishes, then by lower hours, puis index agent pour stabilité
+    availD.sort((a,b)=>{
+      const wa=withoutWish(a)?0:1;
+      const wb=withoutWish(b)?0:1;
+      if(wa!==wb) return wa-wb;
+      const sh=scoreByHours(a)-scoreByHours(b);
+      if(sh!==0) return sh;
+      return a-b;
+    });
+    availN.sort((a,b)=>{
+      const wa=withoutWish(a)?0:1;
+      const wb=withoutWish(b)?0:1;
+      if(wa!==wb) return wa-wb;
+      const sh=scoreByHours(a)-scoreByHours(b);
+      if(sh!==0) return sh;
+      return a-b;
+    });
     if(!asgD&&availD.length){sch[availD[0]][d]='D';asgD=true;}
-    if(!asgN){const pick=availN.find(a=>sch[a][d]==='R');if(pick!==undefined)sch[pick][d]='N';}
+    if(!asgN){
+      const pick=availN.find(a=>sch[a][d]==='R');
+      if(pick!==undefined){sch[pick][d]='N';}
+    }
   }
-  fixCoverage(days,n,minRest,maxCons,sch,prevSch);
+  fixCoverage(days,n,sch);
 }
-function genMinWE(days,n,minRest,maxCons,sch){
-  const prevSch=getPrevSch();
-  const cwa=(a,d,t)=>canWorkAs(sch,a,d,t,minRest,maxCons,prevSch);
-  const wc=Array(n).fill(0);
+function genMinWE(days,n,minRest,sch){
+  // Min WE: minimiser les WE/fériés travaillés de manière équitable
+  const wc=Array(n).fill(0);  // WE counter per agent
   for(let d=0;d<days;d++){
     let asgD=false,asgN=false;
     for(let a=0;a<n;a++){if(sType(sch[a][d])==='D')asgD=true;if(sType(sch[a][d])==='N')asgN=true;}
     if(asgD&&asgN) continue;
     const special=isWE(currentYear,currentMonth,d+1)||!!isFerie(currentYear,currentMonth,d+1);
-    let orderD=[...Array(n).keys()].filter(a=>!isLocked(sch,a,d)&&cwa(a,d,'D'));
-    let orderN=[...Array(n).keys()].filter(a=>!isLocked(sch,a,d)&&cwa(a,d,'N'));
-    shuffle(orderD); shuffle(orderN);
+    let orderD=[...Array(n).keys()].filter(a=>!isLocked(sch,a,d)&&canWorkAs(sch,a,d,'D',minRest));
+    let orderN=[...Array(n).keys()].filter(a=>!isLocked(sch,a,d)&&canWorkAs(sch,a,d,'N',minRest));
+    // Mélange pour éviter le biais d'ordre
+    shuffle(orderD);
+    shuffle(orderN);
+    // Combined scoring: WE minimization + hour equity + wishes
     const totH=agents.map((_,a)=>sch[a].reduce((s,v)=>s+shiftMin(v),0));
     const maxH=Math.max(...totH)||1;
-    const score=(a)=>wc[a]+totH[a]/maxH*10+(hasWish(a,currentYear,currentMonth,d+1)?-5:0);
+    const score=(a)=>{
+      const weScore=wc[a];
+      const hScore=totH[a]/maxH*10;
+      const wishBonus=hasWish(a,currentYear,currentMonth,d+1)?-5:0;
+      return weScore+hScore+wishBonus;
+    };
     orderD.sort((a,b)=>score(a)-score(b)||(a-b));
     orderN.sort((a,b)=>score(a)-score(b)||(a-b));
     if(!asgD&&orderD.length){sch[orderD[0]][d]='D';if(special)wc[orderD[0]]++;asgD=true;}
-    if(!asgN){const pick=orderN.find(a=>sch[a][d]==='R');if(pick!==undefined){sch[pick][d]='N';if(special)wc[pick]++;}}
+    if(!asgN){
+      const pick=orderN.find(a=>sch[a][d]==='R');
+      if(pick!==undefined){sch[pick][d]='N';if(special)wc[pick]++;}
+    }
   }
-  fixCoverage(days,n,minRest,maxCons,sch,prevSch);
+  fixCoverage(days,n,sch);
 }
-// fixCoverageNoWE : comme fixCoverage mais ne touche JAMAIS les Sam/Dim
-// (leurs blocs ont déjà été attribués atomiquement par genEquityWE)
-function fixCoverageNoWE(days,n,minRest,maxCons,sch,prevSch){
-  const cwa=(a,d,t)=>canWorkAs(sch,a,d,t,minRest,maxCons,prevSch);
-  const getScore=(a,forNight)=>{
-    const curH=sch[a].reduce((s,v)=>s+shiftMin(v),0);
-    const mJ=sch[a].filter(v=>v==='D'||v==='HS_D').length;
-    const mN=sch[a].filter(v=>v==='N'||v==='HS_N').length;
-    const dnImbalance=forNight?(mN-mJ):(mJ-mN);
-    return curH*0.01+dnImbalance*3+countAnnualSpecial(a,currentYear)*0.1;
-  };
+function fixCoverage(days,n,sch){
+  const minRest=+(document.getElementById('inp-rest')||{value:2}).value;
   for(let d=0;d<days;d++){
-    const dow=new Date(currentYear,currentMonth,d+1).getDay();
-    // ⚠ NE PAS TOUCHER les Sam et Dim — blocs WE déjà attribués
-    if(dow===6||dow===0) continue;
-
     const DW=[],NW=[],RW=[];
     for(let a=0;a<n;a++){
       const s=sType(sch[a][d]);
       if(s==='D') DW.push(a);
       else if(s==='N') NW.push(a);
       else if(sch[a][d]==='R') RW.push(a);
+      // locked cells (C/F/HS) not in RW — cannot be reassigned
     }
+    // Remove extras (keep first assigned)
     while(DW.length>1){const ag=DW.pop();if(sch[ag][d]==='D'){sch[ag][d]='R';RW.push(ag);}}
     while(NW.length>1){const ag=NW.pop();if(sch[ag][d]==='N'){sch[ag][d]='R';RW.push(ag);}}
 
+    // Fill missing Day — favor agents with least total hours
     if(DW.length===0){
-      let cands=RW.filter(a=>cwa(a,d,'D')&&!hasWish(a,currentYear,currentMonth,d+1));
-      if(!cands.length) cands=RW.filter(a=>cwa(a,d,'D'));
-      if(cands.length){
-        cands.sort((a,b)=>getScore(a,false)-getScore(b,false));
-        const ag=cands[0]; sch[ag][d]='D'; DW.push(ag); RW.splice(RW.indexOf(ag),1);
+      const candidates=RW.filter(a=>canWorkAs(sch,a,d,'D',minRest));
+      if(candidates.length>0){
+        const totH=candidates.map(a=>sch[a].reduce((s,v)=>s+shiftMin(v),0));
+        const minIdx=totH.indexOf(Math.min(...totH));
+        const ag=candidates[minIdx];
+        sch[ag][d]='D';
+        DW.push(ag);
+        RW.splice(RW.indexOf(ag),1);
       }
     }
+    // Fill missing Night — favor agents with least total hours
     if(NW.length===0){
-      let cands=RW.filter(a=>cwa(a,d,'N')&&!DW.includes(a)&&!hasWish(a,currentYear,currentMonth,d+1));
-      if(!cands.length) cands=RW.filter(a=>cwa(a,d,'N')&&!DW.includes(a));
-      if(cands.length){
-        cands.sort((a,b)=>getScore(a,true)-getScore(b,true));
-        sch[cands[0]][d]='N';
-      }
-    }
-  }
-  // Passe de rééquilibrage sur les jours non-WE uniquement
-  for(let pass=0;pass<5;pass++){
-    const totH=Array.from({length:n},(_,a)=>sch[a].reduce((s,v)=>s+shiftMin(v),0));
-    if(Math.max(...totH)-Math.min(...totH)<=DUR.D) break;
-    const heavy=totH.indexOf(Math.max(...totH));
-    const light=totH.indexOf(Math.min(...totH));
-    let swapped=false;
-    for(let d=0;d<days&&!swapped;d++){
-      const dow=new Date(currentYear,currentMonth,d+1).getDay();
-      if(dow===6||dow===0) continue; // ne pas toucher les WE
-      const vh=sch[heavy][d];
-      if((vh==='D'||vh==='N')&&sch[light][d]==='R'&&!isLocked(sch,heavy,d)){
-        sch[heavy][d]='R';
-        if(cwa(light,d,vh==='D'?'D':'N')){
-          sch[light][d]=vh;
-          const hasD=sch.some(r=>r[d]==='D'||r[d]==='HS_D');
-          const hasN=sch.some(r=>r[d]==='N'||r[d]==='HS_N');
-          if(hasD&&hasN){swapped=true;break;}
-          else sch[light][d]='R';
-        }
-        sch[heavy][d]=vh;
-      }
-    }
-    if(!swapped) break;
-  }
-}
-
-function fixCoverage(days,n,minRest,maxCons,sch,prevSch){
-  const cwa=(a,d,t)=>canWorkAs(sch,a,d,t,minRest,maxCons,prevSch);
-  const getScore=(a,forNight)=>{
-    const curH=sch[a].reduce((s,v)=>s+shiftMin(v),0);
-    const mJ=sch[a].filter(v=>v==='D'||v==='HS_D').length;
-    const mN=sch[a].filter(v=>v==='N'||v==='HS_N').length;
-    const dnImbalance=forNight?(mN-mJ):(mJ-mN);
-    return curH*0.01 + dnImbalance*3 + countAnnualSpecial(a,currentYear)*0.1;
-  };
-  for(let d=0;d<days;d++){
-    const dowFC=new Date(currentYear,currentMonth,d+1).getDay();
-    const DW=[],NW=[],RW=[];
-    for(let a=0;a<n;a++){
-      const s=sType(sch[a][d]);
-      if(s==='D') DW.push(a);
-      else if(s==='N') NW.push(a);
-      else if(sch[a][d]==='R') RW.push(a);
-      // WE_PROT ignoré volontairement
-    }
-    while(DW.length>1){const ag=DW.pop();if(sch[ag][d]==='D'){sch[ag][d]='R';RW.push(ag);}}
-    while(NW.length>1){const ag=NW.pop();if(sch[ag][d]==='N'){sch[ag][d]='R';RW.push(ag);}}
-
-    // Pour les WE (Sam+Dim) : si déjà 1 Jour ET 1 Nuit attribués, ne pas toucher
-    // Si incomplet (ex: 1 manquant), on complète mais SANS changer l'autre service
-    const isWEday=(dowFC===6||dowFC===0);
-
-    if(DW.length===0){
-      let cands=RW.filter(a=>cwa(a,d,'D')&&!hasWish(a,currentYear,currentMonth,d+1));
-      if(!cands.length) cands=RW.filter(a=>cwa(a,d,'D'));
-      if(cands.length>0){
-        cands.sort((a,b)=>getScore(a,false)-getScore(b,false));
-        const ag=cands[0];
-        sch[ag][d]='D'; DW.push(ag); RW.splice(RW.indexOf(ag),1);
-      }
-    }
-    if(NW.length===0){
-      let cands=RW.filter(a=>cwa(a,d,'N')&&!DW.includes(a)&&!hasWish(a,currentYear,currentMonth,d+1));
-      if(!cands.length) cands=RW.filter(a=>cwa(a,d,'N')&&!DW.includes(a));
-      if(cands.length>0){
-        cands.sort((a,b)=>getScore(a,true)-getScore(b,true));
-        const ag=cands[0];
+      const candidates=RW.filter(a=>canWorkAs(sch,a,d,'N',minRest));
+      if(candidates.length>0){
+        const totH=candidates.map(a=>sch[a].reduce((s,v)=>s+shiftMin(v),0));
+        const minIdx=totH.indexOf(Math.min(...totH));
+        const ag=candidates[minIdx];
         sch[ag][d]='N';
+        NW.push(ag);
+        RW.splice(RW.indexOf(ag),1);
       }
     }
   }
-
-  for(let pass=0;pass<5;pass++){
-    const totH=Array.from({length:n},(_,a)=>sch[a].reduce((s,v)=>s+shiftMin(v),0));
-    const maxH=Math.max(...totH), minH=Math.min(...totH);
-    if(maxH-minH<=DUR.D) break;
-    const heavy=totH.indexOf(maxH);
-    const light=totH.indexOf(minH);
-    let swapped=false;
-    for(let d=0;d<days&&!swapped;d++){
-      const vh=sch[heavy][d];
-      if((vh==='D'||vh==='N')&&sch[light][d]==='R'&&!isLocked(sch,heavy,d)){
-        const shiftType=vh==='D'?'D':'N';
-        sch[heavy][d]='R';
-        if(cwa(light,d,shiftType)){
-          sch[light][d]=vh;
-          const hasD=sch.some(r=>r[d]==='D'||r[d]==='HS_D');
-          const hasN=sch.some(r=>r[d]==='N'||r[d]==='HS_N');
-          if(hasD&&hasN){swapped=true;break;}
-          else{sch[light][d]='R';}
-        }
-        sch[heavy][d]=vh;
-      }
-    }
-    if(!swapped) break;
-  }
+}
+// Used by drag/paint editor
+function canWorkStrict(sch,a,d,shiftType){
+  const minRest=+(document.getElementById('inp-rest')||{value:2}).value;
+  return canWorkAs(sch,a,d,shiftType,minRest);
 }
 
 /* ========================================================
@@ -1772,7 +1153,6 @@ function renderPlanning(days,sch){
       if(raw==='D'){cls='s-D';label='☀';tip='Jour 06h15';normM+=DUR.D;dayCount++;}
       else if(raw==='N'){cls='s-N';label='☾';tip='Nuit 12h15';normM+=DUR.N;nightCount++;}
       else if(raw==='C'){cls='s-C';label='✈';tip=`Congé (${fmtH(DUR.C)})`;normM+=DUR.C;}      else if(raw==='F'){cls='s-F';label='📚';tip=`Formation (${fmtH(DUR.F)})`;normM+=DUR.F;}
-      else if(raw==='ES'){cls='s-ES';label='🚐';tip='Escorte 9h (hors planning auto)';}
       else if(raw==='HS_D'){cls='s-D';label='☀';tip=`H.Supp Jour +${fmtH(DUR.HS_D)}`;hsM+=DUR.HS_D;dayCount++;}
       else if(raw==='HS_N'){cls='s-N';label='☾';tip=`H.Supp Nuit +${fmtH(DUR.HS_N)}`;hsM+=DUR.HS_N;nightCount++;}
       if(worked){
@@ -1793,13 +1173,9 @@ function renderPlanning(days,sch){
     const hcl=normM>0?'ok':'warn';
     const dnBal=Math.abs(dayCount-nightCount);
     const dnCl=dnBal<=1?'color:var(--green)':dnBal<=3?'color:var(--day)':'color:var(--red)';
-    // Compter les escortes pour cet agent
-    const esM=sch[a].reduce((s,v)=>s+(v==='ES'?DUR.ES:0),0);
-    const totalH=normM+hsM+esM;
-    const totCl=totalH>0?'ok':'warn';
     h+=`<td class="total-col">
-      <span class="${totCl}" title="Total : norm+HS+Escorte">${fmtH(totalH)}</span>
-      <span style="font-size:.54rem;color:var(--muted);display:block">${fmtH(normM)}${hsM>0?`<span style='color:var(--orange)'>+${fmtH(hsM)}</span>`:''}${esM>0?`<span style='color:var(--teal)'>+🚐${fmtH(esM)}</span>`:''}</span>
+      <span class="${hcl}">${fmtH(normM)}</span>
+      ${hsM>0?`<span class="hs-total">+${fmtH(hsM)}</span>`:''}
       <span style="font-size:.57rem;display:block;margin-top:2px"><span style="color:var(--day)">${dayCount}J</span> · <span style="color:var(--night)">${nightCount}N</span></span>
       <span style="font-size:.57rem;color:var(--night);display:block">${weCount}WE · <span style="color:var(--pink)">${jfCount}JF</span></span>
     </td></tr>`;
@@ -1829,11 +1205,9 @@ function renderStats(days,sch){
   const pct=Math.round(cov/days*100);
   const normM=agents.map((_,a)=>sch[a].reduce((s,v)=>s+(v==='D'||v==='N'||v==='C'||v==='F'?shiftMin(v):0),0));
   const hsM=agents.map((_,a)=>sch[a].reduce((s,v)=>s+(v==='HS_D'||v==='HS_N'?shiftMin(v):0),0));
-  const esM=agents.map((_,a)=>sch[a].reduce((s,v)=>s+(v==='ES'?DUR.ES:0),0));
-  const totM=normM.map((m,i)=>m+hsM[i]+esM[i]);
+  const totM=normM.map((m,i)=>m+hsM[i]);
   const bal=Math.max(...totM)-Math.min(...totM);
   const totHS=hsM.reduce((a,b)=>a+b,0);
-  const totES=esM.reduce((a,b)=>a+b,0);
   const annWE=agents.map((_,a)=>countAnnualSpecial(a,currentYear));
   const annBal=Math.max(...annWE)-Math.min(...annWE);
   const dayC=agents.map((_,a)=>countMonthDay(a,currentYear,currentMonth));
@@ -1856,7 +1230,6 @@ function renderStats(days,sch){
     <div class="stat"><div class="stat-label">Écart J/N mois</div><div class="stat-value ${dnBal<=1?'ok':dnBal<=2?'warn':'bad'}">${dnBal} sh</div></div>
     <div class="stat"><div class="stat-label">Écart J/N annuel</div><div class="stat-value ${annDNBal<=3?'ok':annDNBal<=6?'warn':'bad'}">${annDNBal} sh</div></div>
     <div class="stat"><div class="stat-label">H.Supp total</div><div class="stat-value" style="color:var(--orange)">${fmtH(totHS)}</div></div>
-    ${totES>0?`<div class="stat"><div class="stat-label">Escorte total</div><div class="stat-value" style="color:var(--teal)">${fmtH(totES)}</div></div>`:''}
     <div class="stat"><div class="stat-label">Écart WE+JF/an</div><div class="stat-value ${annBal<=3?'ok':annBal<=6?'warn':'bad'}">${annBal} j</div></div>
     <div class="stat"><div class="stat-label">Absences</div><div class="stat-value" style="color:var(--purple)">${absDays}j</div></div>`;
 
@@ -1885,8 +1258,7 @@ function renderEquityPanel(){
   const days=new Date(currentYear,currentMonth+1,0).getDate();
   const normM=agents.map((_,a)=>sch[a].reduce((s,v)=>s+(v==='D'||v==='N'||v==='C'||v==='F'?shiftMin(v):0),0));
   const hsM=agents.map((_,a)=>sch[a].reduce((s,v)=>s+(v==='HS_D'||v==='HS_N'?shiftMin(v):0),0));
-  const esM=agents.map((_,a)=>sch[a].reduce((s,v)=>s+(v==='ES'?DUR.ES:0),0));
-  const totM=normM.map((m,i)=>m+hsM[i]+esM[i]);
+  const totM=normM.map((m,i)=>m+hsM[i]);
   const weM=agents.map((_,a)=>countMonthWE(a,currentYear,currentMonth));
   const jfM=agents.map((_,a)=>countMonthFerie(a,currentYear,currentMonth));
   const annSp=agents.map((_,a)=>countAnnualSpecial(a,currentYear));
@@ -2204,14 +1576,14 @@ const MAX_UNDO=50;
 
 function setPaintMode(m){
   paintMode=m;
-  ['D','N','R','ES'].forEach(x=>{
+  ['D','N','R'].forEach(x=>{
     const b=document.getElementById('btn-paint-'+x);
-    if(b) b.className='edit-mode-btn'+(m===x?' active-'+x:'');
+    b.className='edit-mode-btn'+(m===x?' active-'+x:'');
   });
   // Update ghost style
   const ghost=document.getElementById('drag-ghost');
   ghost.className=`ghost-${m}`;
-  ghost.textContent=m==='D'?'☀':m==='N'?'☾':m==='ES'?'🚐':'—';
+  ghost.textContent=m==='D'?'☀':m==='N'?'☾':'—';
 }
 
 function initDragPaint(){
@@ -2290,7 +1662,7 @@ function applyPaint(cell, newVal, saveUndo){
   const oldVal=sch[a][d];
   if(oldVal===newVal) return;
 
-  // Block locked cells (absences, HS)
+  // Block locked cells
   if(oldVal==='C'||oldVal==='F'||oldVal==='HS_D'||oldVal==='HS_N') return;
 
   // Validate rotation constraints
@@ -2333,7 +1705,6 @@ function applyPaint(cell, newVal, saveUndo){
 
 function checkConstraint(sch, a, d, newVal){
   if(newVal==='R') return null; // rest always allowed
-  if(newVal==='ES') return null; // escorte hors contraintes de rotation
   const days=sch[a].length;
 
   // D after N is forbidden
@@ -2374,8 +1745,8 @@ function refreshCell(cell, a, d, raw, sch){
   if(raw==='D'){cls='s-D';label='☀';tip='Jour 06h–18h';}
   else if(raw==='N'){cls='s-N';label='☾';tip='Nuit 18h–06h';}
   else if(raw==='C'){cls='s-C';label='✈';tip=`Congé (${fmtH(DUR.C)})`;}
+
   else if(raw==='F'){cls='s-F';label='📚';tip=`Formation (${fmtH(DUR.F)})`;}  
-  else if(raw==='ES'){cls='s-ES';label='🚐';tip='Escorte 9h (hors planning auto)';}
   else if(raw==='HS_D'){cls='s-D';label='☀';tip='H.Supp Jour +12h';}
   else if(raw==='HS_N'){cls='s-N';label='☾';tip='H.Supp Nuit +12h';}
   if(worked&&ferieDay) tip+=' 🎌'+ferieDay.name;
@@ -2393,7 +1764,7 @@ function refreshCell(cell, a, d, raw, sch){
 
 function refreshAgentTotals(a, sch){
   const days=sch[a].length;
-  let normM=0,hsM=0,esM=0,weCount=0,jfCount=0,dayCount=0,nightCount=0;
+  let normM=0,hsM=0,weCount=0,jfCount=0,dayCount=0,nightCount=0;
   for(let d=0;d<days;d++){
     const v=sch[a][d];
     const dow=new Date(currentYear,currentMonth,d+1).getDay();
@@ -2405,7 +1776,6 @@ function refreshAgentTotals(a, sch){
     else if(v==='C'){normM+=DUR.C;}
     else if(v==='HS_D'){hsM+=DUR.HS_D;dayCount++;}
     else if(v==='HS_N'){hsM+=DUR.HS_N;nightCount++;}
-    else if(v==='ES'){esM+=DUR.ES;}
     if(worked){if(weDay&&!ferieDay)weCount++;if(ferieDay)jfCount++;}
   }
   const rows=document.querySelectorAll('#planning-wrap tbody tr');
@@ -2413,11 +1783,10 @@ function refreshAgentTotals(a, sch){
   if(!row) return;
   const totalTd=row.querySelector('.total-col');
   if(!totalTd) return;
-  const totalH=normM+hsM+esM;
-  const hcl=totalH>0?'ok':'warn';
+  const hcl=normM>0?'ok':'warn';
   totalTd.innerHTML=`
-    <span class="${hcl}" title="Total : norm+HS+Escorte">${fmtH(totalH)}</span>
-    <span style="font-size:.54rem;color:var(--muted);display:block">${fmtH(normM)}${hsM>0?`<span style='color:var(--orange)'>+${fmtH(hsM)}</span>`:''}${esM>0?`<span style='color:var(--teal)'>+🚐${fmtH(esM)}</span>`:''}</span>
+    <span class="${hcl}">${fmtH(normM)}</span>
+    ${hsM>0?`<span class="hs-total">+${fmtH(hsM)}</span>`:''}
     <span style="font-size:.57rem;display:block;margin-top:2px"><span style="color:var(--day)">${dayCount}J</span> · <span style="color:var(--night)">${nightCount}N</span></span>
     <span style="font-size:.57rem;color:var(--night);display:block">${weCount}WE · <span style="color:var(--pink)">${jfCount}JF</span></span>`;
 }
@@ -2508,78 +1877,6 @@ function notif(msg,type){
   setTimeout(()=>div.remove&&div.remove(),6000);
 }
 </script>
-
-<!-- TAB PARAMÈTRES -->
-
-<div class="panel" id="tab-settings">
-  <div style="max-width:640px;margin:0 auto;display:flex;flex-direction:column;gap:24px">
-
-```
-<!-- Statut Firebase -->
-<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px">
-  <h3 style="margin:0 0 14px;font-size:.95rem;color:var(--text)">🔥 Statut Firebase</h3>
-  <div id="fb-status-box" style="font-size:.82rem;line-height:1.8;color:var(--muted)">
-    Vérification en cours…
-  </div>
-</div>
-
-<!-- Configuration Firebase -->
-<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px">
-  <h3 style="margin:0 0 6px;font-size:.95rem;color:var(--text)">⚙ Configuration Firebase</h3>
-  <p style="margin:0 0 14px;font-size:.78rem;color:var(--muted)">
-    Ces valeurs se trouvent dans la <a href="https://console.firebase.google.com" target="_blank" style="color:var(--accent)">console Firebase</a>
-    → votre projet → Paramètres ⚙ → Vos applications → Web → SDK setup.
-  </p>
-  <div style="display:flex;flex-direction:column;gap:10px">
-    <div>
-      <label style="font-size:.75rem;color:var(--muted);display:block;margin-bottom:4px">API Key</label>
-      <input id="cfg-apiKey" type="text" placeholder="AIzaSy…" style="width:100%;box-sizing:border-box;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:7px 10px;color:var(--text);font-size:.82rem">
-    </div>
-    <div>
-      <label style="font-size:.75rem;color:var(--muted);display:block;margin-bottom:4px">Database URL</label>
-      <input id="cfg-dbUrl" type="text" placeholder="https://mon-projet-default-rtdb.firebaseio.com" style="width:100%;box-sizing:border-box;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:7px 10px;color:var(--text);font-size:.82rem">
-    </div>
-    <div>
-      <label style="font-size:.75rem;color:var(--muted);display:block;margin-bottom:4px">Project ID</label>
-      <input id="cfg-projectId" type="text" placeholder="mon-projet-12345" style="width:100%;box-sizing:border-box;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:7px 10px;color:var(--text);font-size:.82rem">
-    </div>
-    <button class="btn btn-primary" style="align-self:flex-start;margin-top:4px" onclick="applyFirebaseConfig()">✓ Appliquer et connecter</button>
-    <div id="cfg-result" style="font-size:.78rem;margin-top:4px"></div>
-  </div>
-</div>
-
-<!-- Export / Import -->
-<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px">
-  <h3 style="margin:0 0 14px;font-size:.95rem;color:var(--text)">📦 Sauvegarde manuelle</h3>
-  <p style="margin:0 0 14px;font-size:.78rem;color:var(--muted)">Utile pour transférer les données ou faire une sauvegarde de secours.</p>
-  <div style="display:flex;gap:10px;flex-wrap:wrap">
-    <button class="btn" style="background:var(--surface);border:1px solid var(--border);color:var(--text)" onclick="exportJSON()">💾 Exporter JSON</button>
-    <button class="btn" style="background:var(--surface);border:1px solid var(--border);color:var(--text)" onclick="importJSON()">📂 Importer JSON</button>
-  </div>
-</div>
-
-<!-- Guide rapide -->
-<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px">
-  <h3 style="margin:0 0 14px;font-size:.95rem;color:var(--text)">📖 Guide rapide Firebase (gratuit)</h3>
-  <ol style="margin:0;padding-left:20px;font-size:.8rem;color:var(--muted);line-height:2">
-    <li>Aller sur <a href="https://console.firebase.google.com" target="_blank" style="color:var(--accent)">console.firebase.google.com</a></li>
-    <li>Créer un projet → désactiver Google Analytics (optionnel)</li>
-    <li>Dans le menu gauche : <b>Realtime Database</b> → Créer une base de données</li>
-    <li>Choisir la région Europe (eu-west1) → Mode test → Activer</li>
-    <li>⚙ Paramètres du projet → onglet <b>Général</b> → Vos applications → icône <b>&lt;/&gt;</b></li>
-    <li>Enregistrer l'application (nom au choix) → copier <b>apiKey</b>, <b>databaseURL</b>, <b>projectId</b></li>
-    <li>Coller ces 3 valeurs ci-dessus → cliquer <b>Appliquer et connecter</b></li>
-    <li>Partager l'URL de cette page avec vos agents — tout le monde partage les mêmes données !</li>
-  </ol>
-  <p style="margin:12px 0 0;font-size:.75rem;color:var(--dim);border-top:1px solid var(--border);padding-top:10px">
-    ⚠ Le mode test Firebase autorise la lecture/écriture pendant 30 jours. Ensuite, aller dans
-    Realtime Database → Règles et remplacer par : <code style="background:var(--surface);padding:2px 5px;border-radius:4px">{ "rules": { ".read": true, ".write": true } }</code>
-  </p>
-</div>
-```
-
-  </div>
-</div>
 
 </body>
 </html>
