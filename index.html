@@ -1804,7 +1804,8 @@ function renderPlanning(days,sch){
       let cls='s-R',label='—',tip='Repos';
       if(raw==='D'){cls='s-D';label='☀';tip='Jour 06h15';normM+=DUR.D;dayCount++;}
       else if(raw==='N'){cls='s-N';label='☾';tip='Nuit 12h15';normM+=DUR.N;nightCount++;}
-      else if(raw==='C'){cls='s-C';label='✈';tip=`Congé (${fmtH(DUR.C)})`;normM+=DUR.C;}      else if(raw==='F'){cls='s-F';label='📚';tip='Formation';}
+      else if(raw==='C'){cls='s-C';label='✈';tip=`Congé (${fmtH(DUR.C)})`;normM+=DUR.C;}
+      else if(raw==='F'){cls='s-F';label='📚';tip=`Formation (${fmtH(DUR.F)})`;normM+=DUR.F;}
       else if(raw==='ES'){cls='s-ES';label='🚐';tip='Escorte 9h (hors planning auto)';}
       else if(raw==='HS_D'){cls='s-D';label='☀';tip=`H.Supp Jour +${fmtH(DUR.HS_D)}`;hsM+=DUR.HS_D;dayCount++;}
       else if(raw==='HS_N'){cls='s-N';label='☾';tip=`H.Supp Nuit +${fmtH(DUR.HS_N)}`;hsM+=DUR.HS_N;nightCount++;}
@@ -2418,7 +2419,7 @@ function refreshCell(cell, a, d, raw, sch){
   if(raw==='D'){cls='s-D';label='☀';tip='Jour 06h–18h';}
   else if(raw==='N'){cls='s-N';label='☾';tip='Nuit 18h–06h';}
   else if(raw==='C'){cls='s-C';label='✈';tip=`Congé (${fmtH(DUR.C)})`;}
-  else if(raw==='F'){cls='s-F';label='📚';tip='Formation';}
+  else if(raw==='F'){cls='s-F';label='📚';tip=`Formation (${fmtH(DUR.F)})`;}
   else if(raw==='ES'){cls='s-ES';label='🚐';tip='Escorte 9h (hors planning auto)';}
   else if(raw==='HS_D'){cls='s-D';label='☀';tip='H.Supp Jour +12h';}
   else if(raw==='HS_N'){cls='s-N';label='☾';tip='H.Supp Nuit +12h';}
